@@ -1,0 +1,46 @@
+import Header from "@/components/header";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb"
+
+
+
+import { Footer } from "@/components/footer";
+
+import FormChekout from "@/components/FormCheckout";
+
+export default function Carrinho() {
+  return (
+    <main className="min-h-screen bg-[#110B08] font-mono text-[#E8D9CE]">
+      <div className="mx-auto max-w-6xl px-4 py-6">
+      <Header />
+        <Breadcrumb className="mb-3 mt-3 text-sm text-[#B39463]">
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink render={<a href="/home" />}>Início</BreadcrumbLink>
+            </BreadcrumbItem>
+              <BreadcrumbSeparator>/</BreadcrumbSeparator>
+            <BreadcrumbItem>
+              <BreadcrumbLink render={<a href="/mercado" />}>Mercado</BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator>/</BreadcrumbSeparator>
+            <BreadcrumbItem>
+              <BreadcrumbPage>Carrinho</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
+        <div >
+       {/* Charrinho de compras */}
+            <FormChekout/>  
+        </div>
+      <Footer/>
+      </div>
+    </main>
+  );
+}
