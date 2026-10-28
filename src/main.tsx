@@ -1,16 +1,16 @@
 
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { RouterProvider } from "@tanstack/react-router";
 import {
   QueryClient,
   QueryClientProvider,
 } from "@tanstack/react-query";
+import { RouterProvider } from "@tanstack/react-router";
 
 import { router } from "@/lib/router";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import "@/index.css";
-import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,12 +18,20 @@ const queryClient = new QueryClient({
       staleTime: 30_000,
       retry: 1,
       refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+    },
+    mutations: {
+      retry: false,
     },
   },
 });
 
 async function enableMocking() {
-  if (import.meta.env.DEV) {
+  const shouldEnableMocks =
+    import.meta.env.DEV ||
+    import.meta.env.VITE_ENABLE_MSW === "true";
+
+  if (shouldEnableMocks) {
     const { worker } = await import("@/mocks/browser");
 
     await worker.start({
@@ -40,15 +48,15 @@ async function bootstrap() {
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-        <CartProvider>
-          <RouterProvider router={router} />
-        </CartProvider>
+          <CartProvider>
+            <RouterProvider router={router} />
+          </CartProvider>
         </AuthProvider>
       </QueryClientProvider>
     </React.StrictMode>,
   );
 }
 
-bootstrap().catch((error) => {
+bootstrap().catch((error: unknown) => {
   console.error("Erro ao inicializar a aplicação:", error);
 });

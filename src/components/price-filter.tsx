@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Slider } from "@/components/ui/slider";
 
 const maxPrice = 16.5;
-const initialRange: [number, number] = [0.02, 12.3];
 
 // interface
 interface PriceFilterProps {

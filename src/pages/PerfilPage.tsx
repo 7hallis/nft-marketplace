@@ -1,16 +1,10 @@
 
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import {
-  CircleHelp,
-  Download,
+ 
   Eye,
   EyeOff,
-  Heart,
-  LogOut,
-  ShoppingCart,
-  Tag,
-  UserRound,
-  Wallet,
+ 
 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
@@ -24,33 +18,10 @@ import {
   updateProfile,
   type User,
 } from "@/api/auth";
-import { SidebarLink } from "@/components/layout/SidebarLink";
 import { ProfileSidebar } from "@/components/layout/ProfileSidebar";
 
-type ProfileRoute =
-  | "/perfil"
-  | "/carteira"
-  | "/atividade"
-  | "/interesses"
-  | "/ofertas"
-  | "/downloads"
-  | "/suporte";
 
-type ProfileLinkItem = {
-  label: string;
-  icon: typeof UserRound;
-  to: ProfileRoute;
-};
 
-const profileLinks = [
-  { label: "Dados do perfil", icon: UserRound, to: "/perfil" },
-  { label: "Carteiras", icon: Wallet, to: "/carteira" },
-  { label: "Atividade", icon: ShoppingCart, to: "/atividade" },
-  { label: "Lista de interesse", icon: Heart, to: "/interesses" },
-  { label: "Ofertas", icon: Tag, to: "/ofertas" },
-  { label: "Arquivos baixados", icon: Download, to: "/downloads" },
-  { label: "Suporte", icon: CircleHelp, to: "/suporte" },
-] satisfies ProfileLinkItem[];
 
 const profileFields = [
   { label: "Nome de exibição", id: "displayName", required: true },
@@ -97,7 +68,7 @@ function loadAvatar(): string | null {
 }
 
 export default function PerfilPage() {
-  const { user, isAuthenticated, isLoading, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, } = useAuth();
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -277,13 +248,7 @@ export default function PerfilPage() {
     }
   }
 
-  async function handleLogout() {
-    try {
-      await logout();
-    } catch {
-      setErrorMessage("Não foi possível encerrar a sessão. Tente novamente.");
-    }
-  }
+
 
   if (isLoading) {
     return (

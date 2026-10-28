@@ -1,13 +1,13 @@
 
+import { useState, type FormEvent } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { CheckCircle2, ShoppingBag } from "lucide-react";
+
 import Image from "./ui/image";
-import nft1 from "../assets/nft1.png";
-import nft2 from "../assets/nft2.png";
-import nft3 from "../assets/nft3.png";
-
-
 import { Checkbox } from "./ui/checkbox";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "./ui/textarea";
 import {
   Select,
   SelectContent,
@@ -17,8 +17,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "./ui/textarea";
-import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+import { useCart } from "@/contexts/CartContext";
+
+const NETWORK_FEE = 0.016;
 
 const walletTypes = [
   { value: "metamask", label: "MetaMask" },
@@ -28,10 +37,6 @@ const walletTypes = [
   { value: "walletconnect", label: "WalletConnect" },
   { value: "ledger", label: "Ledger (Hardware Wallet)" },
   { value: "other", label: "Outra carteira" },
-];
-
-const itemsRede = [
-  { value: "eth", label: ".eth" },
 ];
 
 const blockchainNetworks = [
@@ -52,428 +57,618 @@ const blockchainNetworks = [
   { value: "cardano", label: "Cardano" },
 ];
 
-const nfts = [
-  {
-    idtoken: "ID do token: #0088",
-    image: nft3,
-    name: "Ivory Baron #088",
-    price: "16.11 ETH",
-    alt: "Macaco usando chapéu verde e moletom roxo",
-    quanty: 9,
-  },
-  {
-    idtoken: "ID do token: #0314",
-    image: nft2,
-    name: "Violet Nomad #314",
-    price: "8.34 ETH",
-    alt: "Macaco usando chapéu verde e moletom roxo",
-    quanty: 6,
-  },
-  {
-    idtoken: "ID do token: #0042",
-    image: nft1,
-    name: "Emerald Ape #042",
-    price: "2.38 ETH",
-    alt: "Macaco de pelo escuro usando roupa clara",
-    quanty: 2,
-  },
+const walletOptions = [
+  { value: "all", label: "Carteira compatível (selecionar depois)" },
+  { value: "metamask", label: "MetaMask" },
+  { value: "coinbase-wallet", label: "Coinbase Wallet" },
+  { value: "walletconnect", label: "WalletConnect" },
 ];
- 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Button } from "@base-ui/react";
-// Ajuste: removidas importações não utilizadas que causavam erros de TypeScript neste componente.
+
+type CheckoutForm = {
+  displayName: string;
+  username: string;
+  network: string;
+  profileName: string;
+  walletAddress: string;
+  secondaryWallet: string;
+  walletType: string;
+  referralCode: string;
+  email: string;
+  ensName: string;
+  observation: string;
+};
+
+type Order = {
+  id: string;
+  date: string;
+  total: number;
+  wallet: string;
+  network: string;
+  items: {
+    id: string;
+    name: string;
+    quantity: number;
+    price: number;
+    image: string;
+  }[];
+};
+
+const initialForm: CheckoutForm = {
+  displayName: "",
+  username: "",
+  network: "",
+  profileName: "",
+  walletAddress: "",
+  secondaryWallet: "",
+  walletType: "",
+  referralCode: "",
+  email: "",
+  ensName: "",
+  observation: "",
+};
+
+function formatEth(value: number) {
+  return `${value.toFixed(3)} ETH`;
+}
+
+function generateOrderId() {
+  return `KURIO-${Date.now().toString(36).toUpperCase()}-${Math.random()
+    .toString(36)
+    .slice(2, 8)
+    .toUpperCase()}`;
+}
 
 export default function FormChekout() {
+  const navigate = useNavigate();
+  const { items, itemCount, clearCart } = useCart();
 
-
-  const [useOtherWallet, setUseOtherWallet] = useState(false);
+  const [form, setForm] = useState<CheckoutForm>(initialForm);
   const [selectedWallet, setSelectedWallet] = useState("");
+  const [useOtherWallet, setUseOtherWallet] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [discount, setDiscount] = useState(0);
+  const [promoMessage, setPromoMessage] = useState("");
+  const [error, setError] = useState("");
+  const [order, setOrder] = useState<Order | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
- 
+  const subtotal = items.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
+
+  const validDiscount =
+    items.length > 0 ? Math.min(discount, subtotal) : 0;
+
+  const networkFee = items.length > 0 ? NETWORK_FEE : 0;
+  const total = Math.max(0, subtotal - validDiscount) + networkFee;
+
+  function updateField<K extends keyof CheckoutForm>(
+    key: K,
+    value: CheckoutForm[K],
+  ) {
+    setForm((current) => ({ ...current, [key]: value }));
+  }
+
+  function applyPromo() {
+    if (items.length === 0) {
+      setDiscount(0);
+      setPromoMessage("Seu carrinho está vazio.");
+      return;
+    }
+
+    if (promoCode.trim().toUpperCase() === "KURIO10") {
+      setDiscount(subtotal * 0.1);
+      setPromoMessage("Cupom KURIO10 aplicado: 10% de desconto.");
+    } else {
+      setDiscount(0);
+      setPromoMessage("Código inválido. Tente KURIO10.");
+    }
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+
+    if (items.length === 0) {
+      setError("Seu carrinho está vazio. Adicione um NFT antes de continuar.");
+      return;
+    }
+
+    if (
+      !form.displayName.trim() ||
+      !form.username.trim() ||
+      !form.network ||
+      !form.profileName.trim() ||
+      !form.walletAddress.trim() ||
+      !form.walletType ||
+      !form.email.trim() ||
+      !selectedWallet
+    ) {
+      setError("Preencha todos os campos obrigatórios e selecione uma carteira.");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setError("Informe um endereço de e-mail válido.");
+      return;
+    }
+
+    if (
+      useOtherWallet &&
+      !form.secondaryWallet.trim()
+    ) {
+      setError("Informe o endereço da carteira secundária.");
+      return;
+    }
+
+    const orderItems = items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      image: item.image,
+    }));
+
+    const newOrder: Order = {
+      id: generateOrderId(),
+      date: new Date().toLocaleString("pt-BR"),
+      total,
+      wallet: selectedWallet,
+      network: form.network,
+      items: orderItems,
+    };
+
+    setOrder(newOrder);
+    setDialogOpen(true);
+  }
+
+  function finishOrder() {
+    clearCart();
+    setDialogOpen(false);
+    void navigate({ to: "/mercado" });
+  }
+
+  if (order && dialogOpen) {
+    return (
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto border border-[#D98845]/50 bg-[#1C1410] p-6 text-[#E8D9CE] sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-center gap-2 text-center text-lg font-bold text-[#D98845]">
+              <CheckCircle2 className="h-6 w-6" />
+              Compra simulada confirmada
+            </DialogTitle>
+            <DialogDescription className="text-center text-[#CFB28C]">
+              O pedido foi registrado nesta demonstração do Kurio. Nenhuma
+              transação real foi enviada à blockchain.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-3 border-y border-[#D98845]/30 py-4 text-xs sm:grid-cols-2">
+            <div>
+              <p className="text-[#B39463]">Pedido</p>
+              <p className="mt-1 break-all font-bold text-[#D98845]">
+                {order.id}
+              </p>
+            </div>
+            <div>
+              <p className="text-[#B39463]">Data</p>
+              <p className="mt-1">{order.date}</p>
+            </div>
+            <div>
+              <p className="text-[#B39463]">Carteira selecionada</p>
+              <p className="mt-1">{order.wallet}</p>
+            </div>
+            <div>
+              <p className="text-[#B39463]">Rede selecionada</p>
+              <p className="mt-1">{order.network}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {order.items.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-3 bg-[#241612] p-3"
+              >
+                <Image
+                  src={item.image}
+                  alt={item.name}
+                  className="h-14 w-14 rounded-md object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs">{item.name}</p>
+                  <p className="mt-1 text-[10px] text-[#B39463]">
+                    Quantidade: {item.quantity}
+                  </p>
+                </div>
+                <p className="shrink-0 text-xs font-bold text-[#D98845]">
+                  {formatEth(item.price * item.quantity)}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-between border-t border-[#D98845]/30 pt-4 font-bold">
+            <span>Total do pedido</span>
+            <span className="text-[#D98845]">{formatEth(order.total)}</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={finishOrder}
+            className="w-full rounded-sm bg-[#D98845] p-3 text-xs font-bold text-[#110B08] hover:bg-[#E8A15F]"
+          >
+            Concluir e voltar ao mercado
+          </button>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <section className="rounded-md border border-[#CFB28C]/20 bg-[#21150F] p-8 text-center">
+        <ShoppingBag className="mx-auto h-8 w-8 text-[#D98845]" />
+        <h2 className="mt-3 text-lg font-bold text-white">
+          Seu carrinho está vazio
+        </h2>
+        <p className="mt-2 text-sm text-[#B39463]">
+          Adicione NFTs ao carrinho antes de finalizar a compra.
+        </p>
+        <button
+          type="button"
+          onClick={() => void navigate({ to: "/mercado" })}
+          className="mt-5 rounded-sm bg-[#D98845] px-5 py-3 text-xs font-bold text-[#110B08] hover:bg-[#E8A15F]"
+        >
+          Explorar mercado
+        </button>
+      </section>
+    );
+  }
 
   return (
-    <main className="min-h-screen bg-[#110B08] px-4 py-4 font-mono text-[#E8D9CE] sm:px-6">
-      <div className="w-full">
-        <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] md:gap-8 lg:gap-12">
-          <section aria-label="Perfil do colecionador" className="min-w-0">
-            <h1 className="text-lg">Perfil do colecionador</h1>
+    <section className="min-w-0 bg-[#110B08] py-4 font-mono text-[#E8D9CE] sm:py-6">
+      <form
+        onSubmit={handleSubmit}
+        className="grid grid-cols-1 items-start gap-8 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:gap-12"
+      >
+        <section aria-label="Dados do colecionador" className="min-w-0">
+          <h1 className="text-lg font-bold text-white">
+            Perfil do colecionador
+          </h1>
+          <p className="mt-1 text-xs text-[#B39463]">
+            Campos marcados com * são obrigatórios.
+          </p>
 
-            <FieldGroup className="mt-3 grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field className="min-w-0">
-                <FieldLabel>
-                  Nome de exibição <span className="text-[#F0805F]">*</span>
-                </FieldLabel>
-                <Input className="w-full border border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE] focus:ring-[#D98845]" />
-              </Field>
-
-              <Field className="min-w-0">
-                <FieldLabel>
-                  Nome de usuário <span className="text-[#F0805F]">*</span>
-                </FieldLabel>
-                <Input className="w-full border border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE] focus:ring-[#D98845]" />
-              </Field>
-
-              <Field className="min-w-0">
-                <FieldLabel>
-                  Rede <span className="text-[#F0805F]">*</span>
-                </FieldLabel>
-                <Select items={blockchainNetworks}>
-                  <SelectTrigger className="w-full min-w-0">
-                    <SelectValue placeholder="Selecione uma rede" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Redes blockchain</SelectLabel>
-                      {blockchainNetworks.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field className="min-w-0">
-                <FieldLabel>
-                  Nome do perfil <span className="text-[#F0805F]">*</span>
-                </FieldLabel>
-                <Input className="w-full border border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE] focus:ring-[#D98845]" />
-              </Field>
-
-              <Field className="min-w-0">
-                <FieldLabel>
-                  Endereço da carteira <span className="text-[#F0805F]">*</span>
-                </FieldLabel>
-                <Input className="w-full border border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE] focus:ring-[#D98845]" placeholder="0x..." />
-              </Field>
-
-              <Field className="min-w-0">
-                <FieldLabel>ENS ou carteira secundária (opcional)</FieldLabel>
-                <Input className="w-full border border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE] focus:ring-[#D98845]" placeholder="Nome ENS ou outro endereço" />
-              </Field>
-
-              <Field className="min-w-0">
-                <FieldLabel>
-                  Tipo de carteira <span className="text-[#F0805F]">*</span>
-                </FieldLabel>
-                <Select items={walletTypes}>
-                  <SelectTrigger className="w-full min-w-0">
-                    <SelectValue placeholder="Selecione uma carteira" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Carteiras</SelectLabel>
-                      {walletTypes.map((item) => (
-                        <SelectItem key={item.value} value={item.value}>
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-
-              <Field className="min-w-0">
-                <FieldLabel>
-                  Código de indicação <span className="text-[#F0805F]">*</span>
-                </FieldLabel>
-                <Input className="w-full border border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE] focus:ring-[#D98845]" />
-              </Field>
-
-              <Field className="min-w-0 ">
-                <FieldLabel>
-                  Email <span className="text-[#F0805F]">*</span>
-                </FieldLabel>
-                <Input className="w-full border border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE] focus:ring-[#D98845]" type="email" />
-              </Field>
-
-              <Field className="min-w-0">
-                <FieldLabel>
-                  Nome ENS <span className="text-[#F0805F]">*</span>
-                </FieldLabel>
-                <Select items={itemsRede}>
-                  <SelectTrigger className="w-full min-w-0 border border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE] focus:ring-[#D98845]">
-                    <SelectValue placeholder="Selecione uma extensão" />
-                  </SelectTrigger>
-                  <SelectContent className="z-50 border border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE] shadow-xl">
-                    <SelectGroup>
-                      <SelectLabel>Extensões</SelectLabel>
-                      {itemsRede.map((item) => (
-                        <SelectItem
-                          key={item.value}
-                          value={item.value}
-                          className="focus:!bg-[#3A251A] focus:!text-white"
-                        >
-                          {item.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-            </FieldGroup>
-
-            <div
-              className={`mt-4 flex items-center gap-2 rounded-lg border p-3 text-sm transition-colors ${
-                useOtherWallet
-                  ? "border-[#D98845] bg-[#D98845]/10"
-                  : "border-[#D98845]/30 bg-transparent"
-              }`}
-            >
-              <Checkbox
-                id="use-other-wallet"
-                checked={useOtherWallet}
-                onCheckedChange={(checked) =>
-                  setUseOtherWallet(checked === true)
-                }
-                className="rounded-full border-[#D98845] data-[state=checked]:border-[#D98845] data-[state=checked]:bg-[#D98845] data-[state=checked]:text-[#1C1410]"
-              />
-              <label
-                htmlFor="use-other-wallet"
-                className="cursor-pointer text-[#D98845]"
-              >
-                Usar outra carteira?
-              </label>
-            </div>
-
-            {useOtherWallet && (
-              <Field className="mt-3">
-                <FieldLabel>Endereço da outra carteira</FieldLabel>
-                <Input
-                  className="w-full"
-                  placeholder="Informe o endereço da carteira"
-                />
-              </Field>
-            )}
-
-            <Field className="mt-3">
-              <FieldLabel>Observação do colecionador (opcional)</FieldLabel>
-              {/* Ajuste: a área de observação agora se adapta à largura disponível sem ultrapassar o formulário. */}
-              <Textarea className="min-h-44 w-full resize-y border border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE] focus:ring-[#D98845]" />
-            </Field>
-          </section>
-
-          <aside className="w-full min-w-0 md:max-w-sm">
-            <h2 className="pb-2 text-xs font-semibold text-[#E8D9CE]">
-              Seus NFTs
-            </h2>
-
-            <div className="flex justify-between border-b border-[#CFB28C]/25 pb-2 text-xs">
-              <p className="font-semibold">NFTs</p>
-              <p>Subtotal</p>
-            </div>
-
-            <div className="flex flex-col gap-4 pt-5">
-              {nfts.map((item) => (
-                <article key={item.name} className="min-w-0">
-                  <div className="flex min-w-0 gap-3 bg-[#241612] p-3 sm:gap-4">
-                    <Image
-                      src={item.image}
-                      alt={item.alt}
-                      className="h-[70px] w-[70px] shrink-0 rounded-lg object-cover"
-                    />
-
-                    <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 text-[10px] leading-tight text-[#E8D9CE] sm:text-xs">
-                      <p className="truncate">{item.name}</p>
-                      <p>{item.idtoken}</p>
-                      <p>Quantidade: {item.quanty}</p>
-                      <p className="font-bold text-[#D98845]">{item.price}</p>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-
-            <div className="p-3">
-              <h2 className="text-sm">
-                Tem um código promocional? Aplique aqui
-              </h2>
-
+          <FieldGroup className="mt-4 grid w-full grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field>
+              <FieldLabel>Nome de exibição *</FieldLabel>
               <Input
-                className="mt-3 w-full"
-                placeholder="Código promocional"
+                required
+                value={form.displayName}
+                onChange={(e) => updateField("displayName", e.target.value)}
+                className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
               />
+            </Field>
 
-              <div className="mt-3 flex justify-between gap-2 text-sm">
-                <p>Subtotal</p>
-                <p>26.83 ETH</p>
-              </div>
+            <Field>
+              <FieldLabel>Nome de usuário *</FieldLabel>
+              <Input
+                required
+                value={form.username}
+                onChange={(e) => updateField("username", e.target.value)}
+                className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
+              />
+            </Field>
 
-              <div className="mt-3 flex justify-between gap-2 text-sm">
-                <p>Desconto do lançamento</p>
-                <p>(-) 00.00 ETH</p>
-              </div>
+            <Field>
+              <FieldLabel>Rede blockchain *</FieldLabel>
+              <Select
+                value={form.network}
+                onValueChange={(value) =>
+                updateField("network", typeof value === "string" ? value : "")
+              }
+                items={blockchainNetworks}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione uma rede" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Redes blockchain</SelectLabel>
+                    {blockchainNetworks.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
 
-              <div className="mt-3 flex justify-between gap-2 text-sm">
-                <p>Taxa de rede</p>
-                <p>0.016 ETH</p>
-              </div>
+            <Field>
+              <FieldLabel>Nome do perfil *</FieldLabel>
+              <Input
+                required
+                value={form.profileName}
+                onChange={(e) => updateField("profileName", e.target.value)}
+                className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
+              />
+            </Field>
 
-              <h2 className="mt-3 border-b border-b-[#D98845] text-center text-[#D98845]">
-                Taxa estimada
-              </h2>
+            <Field>
+              <FieldLabel>Endereço da carteira *</FieldLabel>
+              <Input
+                required
+                value={form.walletAddress}
+                onChange={(e) => updateField("walletAddress", e.target.value)}
+                placeholder="Endereço público da carteira"
+                className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
+              />
+            </Field>
 
-              <div className="flex justify-between gap-2 p-6">
-                <p className="text-[#F5F1EB]">Total</p>
-                <p className="text-[#D98845]">26.846 ETH</p>
-              </div>
+            <Field>
+              <FieldLabel>ENS ou carteira secundária</FieldLabel>
+              <Input
+                value={form.secondaryWallet}
+                onChange={(e) => updateField("secondaryWallet", e.target.value)}
+                placeholder="Opcional"
+                className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
+              />
+            </Field>
 
-              <h2 className="text-center text-[#F5F1EB]">
-                Carteira e rede
-              </h2>
-
-              <div
-                className={`mt-3 flex items-center gap-2 rounded-lg border p-4 text-sm transition-colors ${
-                    selectedWallet === "all"
-                    ? "border-[#D98845] bg-[#D98845]/10"
-                    : "border-[#D98845]/30 bg-transparent"
-                }`}
-                >
-            <Checkbox
-                id="wallet-all"
-                checked={selectedWallet === "all"}
-                onCheckedChange={(checked) =>
-                setSelectedWallet(checked === true ? "all" : "")
+            <Field>
+              <FieldLabel>Tipo de carteira *</FieldLabel>
+              <Select
+                value={form.walletType}
+                onValueChange={(value) =>
+                  updateField("walletType", typeof value === "string" ? value : "")
                 }
-                className="rounded-full border-[#D98845] data-[state=checked]:border-[#D98845] data-[state=checked]:bg-[#D98845] data-[state=checked]:text-[#1C1410]"
+                items={walletTypes}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Selecione uma carteira" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectLabel>Carteiras</SelectLabel>
+                    {walletTypes.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <Field>
+              <FieldLabel>Código de indicação</FieldLabel>
+              <Input
+                value={form.referralCode}
+                onChange={(e) => updateField("referralCode", e.target.value)}
+                className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
+              />
+            </Field>
+
+            <Field>
+              <FieldLabel>E-mail *</FieldLabel>
+              <Input
+                required
+                type="email"
+                value={form.email}
+                onChange={(e) => updateField("email", e.target.value)}
+                className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
+              />
+            </Field>
+
+            <Field>
+              <FieldLabel>Nome ENS</FieldLabel>
+              <Input
+                value={form.ensName}
+                onChange={(e) => updateField("ensName", e.target.value)}
+                placeholder="Opcional"
+                className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
+              />
+            </Field>
+          </FieldGroup>
+
+          <div className="mt-5 flex items-center gap-2 rounded-lg border border-[#D98845]/30 p-3">
+            <Checkbox
+              id="use-other-wallet"
+              checked={useOtherWallet}
+              onCheckedChange={(checked) => setUseOtherWallet(checked === true)}
             />
-
             <label
-                htmlFor="wallet-all"
-                className="flex-1 cursor-pointer bg-[#55321F]/30 text-[9px] text-[#D98845]"
+              htmlFor="use-other-wallet"
+              className="cursor-pointer text-xs text-[#D98845]"
             >
-                METAMASK • WALLETCONNECT • COINBASE
+              Informar uma carteira secundária diferente
             </label>
-            </div>
+          </div>
 
-              <div className="mt-3 space-y-3">
-                {[
-                  { value: "metamask", label: "MetaMask" },
-                  { value: "coinbase-wallet", label: "Coinbase Wallet" },
-                ].map((wallet) => (
-                  <div
-                    key={wallet.value}
-                    className={`flex items-center gap-2 rounded-lg border p-3 text-sm transition-colors ${
-                      selectedWallet === wallet.value
-                        ? "border-[#D98845] bg-[#D98845]/10"
-                        : "border-[#D98845]/30 bg-transparent"
-                    }`}
-                  >
-                    <Checkbox
-                      id={`wallet-${wallet.value}`}
-                      checked={selectedWallet === wallet.value}
-                      onCheckedChange={(checked) =>
-                        setSelectedWallet(
-                          checked === true ? wallet.value : ""
-                        )
-                      }
-                      className="rounded-full border-[#D98845] data-[state=checked]:border-[#D98845] data-[state=checked]:bg-[#D98845] data-[state=checked]:text-[#1C1410]"
-                    />
-                    <label
-                      htmlFor={`wallet-${wallet.value}`}
-                      className="flex-1 cursor-pointer text-[#D98845]"
-                    >
-                      {wallet.label}
-                    </label>
-                  </div>
-                ))}
+          {useOtherWallet && (
+            <Field className="mt-3">
+              <FieldLabel>Endereço da carteira secundária *</FieldLabel>
+              <Input
+                required
+                value={form.secondaryWallet}
+                onChange={(e) => updateField("secondaryWallet", e.target.value)}
+                placeholder="Endereço público"
+                className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
+              />
+            </Field>
+          )}
+
+          <Field className="mt-4">
+            <FieldLabel>Observações (opcional)</FieldLabel>
+            <Textarea
+              value={form.observation}
+              onChange={(e) => updateField("observation", e.target.value)}
+              className="min-h-32 border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
+            />
+          </Field>
+        </section>
+
+        <aside className="w-full min-w-0 rounded-md border border-[#CFB28C]/15 bg-[#1A100C] p-4">
+          <h2 className="border-b border-[#CFB28C]/25 pb-3 text-sm font-semibold text-white">
+            Resumo da compra ({itemCount} itens)
+          </h2>
+
+          <div className="space-y-3 pt-4">
+            {items.map((item) => (
+              <article key={item.id} className="flex min-w-0 gap-3">
+                <Image
+                  src={item.image}
+                  alt={item.alt}
+                  className="h-16 w-16 shrink-0 rounded-md object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-xs">{item.name}</p>
+                  <p className="mt-1 text-[10px] text-[#B39463]">
+                    {item.quantity} × {formatEth(item.price)}
+                  </p>
+                  <p className="mt-1 text-xs font-bold text-[#D98845]">
+                    {formatEth(item.price * item.quantity)}
+                  </p>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-5 border-t border-[#CFB28C]/25 pt-4">
+            <label className="text-xs text-[#B39463]" htmlFor="checkout-promo">
+              Código promocional
+            </label>
+            <div className="mt-2 flex">
+              <Input
+                id="checkout-promo"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                placeholder="KURIO10"
+                className="min-w-0 border-[#D98845]/40 bg-[#110B08] text-xs"
+              />
+              <button
+                type="button"
+                onClick={applyPromo}
+                className="shrink-0 bg-[#D98845] px-3 text-xs font-bold text-[#110B08] hover:bg-[#E8A15F]"
+              >
+                Aplicar
+              </button>
+            </div>
+            {promoMessage && (
+              <p aria-live="polite" className="mt-2 text-[10px] text-[#D98845]">
+                {promoMessage}
+              </p>
+            )}
+          </div>
+
+          <dl className="mt-5 space-y-3 text-xs">
+            <div className="flex justify-between gap-3">
+              <dt className="text-[#B39463]">Subtotal</dt>
+              <dd>{formatEth(subtotal)}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-[#B39463]">Desconto</dt>
+              <dd className="text-[#D98845]">− {formatEth(validDiscount)}</dd>
+            </div>
+            <div className="flex justify-between gap-3">
+              <dt className="text-[#B39463]">Taxa de rede estimada</dt>
+              <dd>{formatEth(networkFee)}</dd>
+            </div>
+          </dl>
+
+          <div className="mt-5 flex justify-between gap-3 border-t border-[#CFB28C]/25 pt-4 font-bold">
+            <span>Total</span>
+            <span className="text-[#D98845]">{formatEth(total)}</span>
+          </div>
+
+          <h3 className="mt-6 text-sm font-semibold">Carteira para a simulação</h3>
+          <p className="mt-1 text-[10px] text-[#B39463]">
+            A seleção não conecta uma carteira real.
+          </p>
+
+          <div className="mt-3 space-y-2">
+            {walletOptions.map((wallet) => (
+              <label
+                key={wallet.value}
+                className={`flex cursor-pointer items-center gap-3 rounded-md border p-3 text-xs ${
+                  selectedWallet === wallet.value
+                    ? "border-[#D98845] bg-[#D98845]/10"
+                    : "border-[#D98845]/25"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="checkout-wallet"
+                  value={wallet.value}
+                  checked={selectedWallet === wallet.value}
+                  onChange={() => setSelectedWallet(wallet.value)}
+                  className="accent-[#D98845]"
+                />
+                <span className="text-[#E8D9CE]">{wallet.label}</span>
+              </label>
+            ))}
+          </div>
+
+          {error && (
+            <p
+              role="alert"
+              className="mt-4 rounded-md border border-red-500/40 bg-red-950/30 p-3 text-xs text-red-300"
+            >
+              {error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            className="mt-5 w-full rounded-sm bg-[#D98845] p-3 text-xs font-bold text-[#110B08] transition-colors hover:bg-[#E8A15F]"
+          >
+            Confirmar compra simulada
+          </button>
+
+          <p className="mt-3 text-center text-[10px] text-[#B39463]">
+            Nenhum pagamento real será realizado.
+          </p>
+        </aside>
+      </form>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="border border-[#D98845]/50 bg-[#1C1410] text-[#E8D9CE] sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-[#D98845]">
+              Pedido registrado
+            </DialogTitle>
+            <DialogDescription className="text-[#CFB28C]">
+              O pedido foi registrado localmente para demonstração. Não existe
+              hash de transação nem confirmação na blockchain.
+            </DialogDescription>
+          </DialogHeader>
+          {order && (
+            <div className="space-y-4">
+              <div className="rounded-md bg-[#241612] p-3 text-xs">
+                <p className="text-[#B39463]">Identificador do pedido</p>
+                <p className="mt-1 break-all font-bold text-[#D98845]">
+                  {order.id}
+                </p>
+                <p className="mt-3 text-[#B39463]">Total</p>
+                <p className="mt-1 font-bold">{formatEth(order.total)}</p>
               </div>
-            {/* Dialog */}
-
-            <div className="w-full">
-
-                <Dialog >
-                    {/* Ajuste: reforça o estado de foco e a consistência visual do botão de confirmação. */}
-                    <DialogTrigger className="mt-3 w-full rounded-sm bg-[#D98845] p-3 text-xs font-bold text-[#110B08] transition-colors hover:bg-[#E8A15F] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#D98845]">Confirmar compra</DialogTrigger>
-                    {/* Ajuste: limita a altura do diálogo e habilita rolagem vertical quando o conteúdo exceder a tela. */}
-                    <DialogContent className="max-h-[85vh] overflow-y-auto border border-[#D98845]/50 bg-[#1C1410] p-6 text-[#E8D9CE] shadow-2xl sm:max-w-lg">
-                        <DialogHeader>
-                        {/* Ajuste: adiciona título acessível e visível para identificar a confirmação. */}
-                        <DialogTitle className="text-center text-lg font-bold text-[#D98845]">Compra confirmada</DialogTitle>
-                        {/* Ajuste: utiliza somente classes Tailwind padrão e melhora a hierarquia da mensagem. */}
-                        <DialogDescription className="border-b border-[#D98845]/50 pb-4 text-center text-[#CFB28C]">
-                           Seus NFTs agora estão na sua carteira
-                        </DialogDescription>
-                        {/* Ajuste: organiza os detalhes em uma grade responsiva para evitar que o conteúdo aperte em telas estreitas. */}
-                        <div className="grid grid-cols-2 items-center gap-3 pt-2 sm:grid-cols-4">
-                           <div className="min-w-0 border-r border-[#D28A4C]/50 px-2 text-center text-xs text-[#CFB28C]">
-                                <p className="text-[10px] uppercase tracking-wide text-[#D98845]">ID da transação</p>
-                                <p className="break-words font-medium">0xA91F…E82C</p>
-                           </div>
-                           
-                           <div className="min-w-0 border-r border-[#D28A4C]/50 px-2 text-center text-xs text-[#CFB28C]">
-                                <p className="text-[10px] uppercase tracking-wide text-[#D98845]">Data</p>
-                                <p className="font-medium">29 Jul, 2026</p>
-                           </div>
-                           <div className="min-w-0 border-r border-[#D28A4C]/50 px-2 text-center text-xs text-[#CFB28C]">
-                                <p className="text-[10px] uppercase tracking-wide text-[#D98845]">Total</p>
-                                <p className="font-medium">26.846 ETH</p>
-                           </div>
-                           
-                           {/* Ajuste: remove a borda terminal da grade e corrige o nome da carteira apresentado. */}
-                           <div className="min-w-0 px-2 text-center text-xs text-[#CFB28C]">
-                            <p className="text-[10px] uppercase tracking-wide text-[#D98845]">Carteira</p>
-                            <p className="font-medium">MetaMask</p>
-                           </div>
-                        </div>
-                        </DialogHeader>
-
-                         <div className="flex flex-col gap-4 pt-5">
-                            {nfts.map((item) => (
-                                <article key={item.name} className="min-w-0">
-                                <div className="flex min-w-0 gap-3 bg-[#241612] p-3 sm:gap-4">
-                                    <Image
-                                    src={item.image}
-                                    alt={item.alt}
-                                    className="h-[70px] w-[70px] shrink-0 rounded-lg object-cover"
-                                    />
-
-                                    {/* Ajuste de alinhamento: mantém os dados do NFT em uma linha e evita sobreposição em telas estreitas. */}
-                                    <div className="flex min-w-0 flex-1 items-center justify-between gap-3">
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate">{item.name}</p>
-                                    
-                                    <p className="text-[#B39463]">{item.idtoken}</p>
-                                    </div>
-                                    <p className="shrink-0 text-[#CFB28C]">(X{item.quanty})</p>
-                                    <div className="shrink-0 text-right">
-
-                                    <p className="font-bold text-[#D98845]">{item.price}</p>
-                                    </div>
-                                    </div>
-                                </div>
-                                </article>
-                            ))}
-                                    <div className="m-3 p-2 border-b border-[#D28A4C]/50">
-                                        {/* Ajuste de alinhamento: alinha rótulos e valores em colunas consistentes com o total. */}
-                                        <div className="mx-auto flex w-full max-w-xs justify-between gap-4">
-                                            <p>Taxa de rede</p>
-                                            <p>0.016 ETH</p>
-                                        </div>
-                                        <div className="mx-auto flex w-full max-w-xs justify-between gap-4">
-                                            <p className="text-md">Total</p>
-                                            <p className="text-[#E89B55]">26.846 ETH</p>
-                                        </div>
-                                    </div>
-                                        <p className="m-3 ">Transação confirmada na Ethereum. A propriedade foi transferida para sua carteira conectada e registrada na rede.</p>
-                                        <Button className="p-3 bg-[#D98845] text-black text">Ver no Etherscan</Button>
-                        </div>
-                       
-                    </DialogContent>
-                    </Dialog>
+              <p className="text-xs text-[#B39463]">
+                {order.items.length} tipo(s) de NFT no pedido.
+              </p>
+              <button
+                type="button"
+                onClick={finishOrder}
+                className="w-full rounded-sm bg-[#D98845] p-3 text-xs font-bold text-[#110B08] hover:bg-[#E8A15F]"
+              >
+                Concluir e voltar ao mercado
+              </button>
             </div>
-            </div>
-          </aside>
-        </div>
-      </div>
-    </main>
+          )}
+        </DialogContent>
+      </Dialog>
+    </section>
   );
 }

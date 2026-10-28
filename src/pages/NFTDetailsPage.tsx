@@ -1,3 +1,4 @@
+
 import { useNavigate, useParams } from "@tanstack/react-router";
 
 import NFTDetails from "@/components/nft/NFTDetails";
@@ -13,19 +14,17 @@ export default function NFTDetailsPage() {
 
   const { addToCart } = useCart();
 
- const normalizeId = (id: string) =>
-  String(id).replace("#", "").trim().replace(/^0+/, "") || "0";
+  const normalizeId = (id: string) =>
+    String(id).replace("#", "").trim().replace(/^0+/, "") || "0";
 
   const selectedNft = nfts.find(
-    (item) => normalizeId(item.id) === normalizeId(nftId)
+    (item) => normalizeId(item.id) === normalizeId(nftId),
   );
 
   if (!selectedNft) {
     return (
       <main className="mx-auto max-w-3xl p-8 text-center text-white">
-        <h1 className="text-2xl font-bold">
-          NFT não encontrado
-        </h1>
+        <h1 className="text-2xl font-bold">NFT não encontrado</h1>
 
         <p className="mt-2 text-white/60">
           Não encontramos um NFT com o identificador: {nftId}
@@ -40,7 +39,7 @@ export default function NFTDetailsPage() {
         </button>
       </main>
     );
-}
+  }
 
   const handleComprar = (quantity: number) => {
     addToCart({
@@ -57,10 +56,7 @@ export default function NFTDetailsPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-      <NFTDetails
-        nft={selectedNft}
-        onComprar={handleComprar}
-      />
+      <NFTDetails nft={selectedNft} onComprar={handleComprar} />
     </main>
   );
 }

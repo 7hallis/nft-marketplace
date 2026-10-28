@@ -38,11 +38,9 @@ interface StoredWallet {
 }
 
 const USERS_STORAGE_KEY = "kurio_mock_users";
-const SESSION_STORAGE_KEY = "kurio_mock_current_user";
+// const SESSION_STORAGE_KEY = "kurio_mock_current_user";
 const WALLETS_STORAGE_KEY = "kurio_mock_wallets";
 const WALLET_PROFILES_STORAGE_KEY = "kurio_mock_wallet_profiles";
-
-// Perfis de carteira.
 
 function loadWalletProfiles(): Record<string, StoredWalletProfile> {
   try {
@@ -82,8 +80,6 @@ function createEmptyWalletProfile(): StoredWalletProfile {
 
 const walletProfiles = loadWalletProfiles();
 
-// Usuários.
-
 function loadUsers(): StoredUser[] {
   try {
     const stored = localStorage.getItem(USERS_STORAGE_KEY);
@@ -97,19 +93,13 @@ function saveUsers() {
   localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
 }
 
-function loadCurrentUserId(): string | null {
-  return localStorage.getItem(SESSION_STORAGE_KEY);
-}
-
-function saveCurrentUserId(id: string | null) {
-  if (id) {
-    localStorage.setItem(SESSION_STORAGE_KEY, id);
-  } else {
-    localStorage.removeItem(SESSION_STORAGE_KEY);
-  }
-}
-
-// Carteiras conectadas.
+// function saveCurrentUserId(id: string | null) {
+//   if (id) {
+//     localStorage.setItem(SESSION_STORAGE_KEY, id);
+//   } else {
+//     localStorage.removeItem(SESSION_STORAGE_KEY);
+//   }
+// }
 
 function loadWallets(): Record<string, StoredWallet> {
   try {
@@ -144,8 +134,6 @@ function createWalletAddress(userId: string): string {
 const users: StoredUser[] = loadUsers();
 const wallets: Record<string, StoredWallet> = loadWallets();
 
-let currentUserId: string | null = loadCurrentUserId();
-
 const nftSocket = ws.link("ws://localhost:5173/socket.io-mock/");
 
 function publicUser(user: StoredUser): MockUser {
@@ -153,8 +141,32 @@ function publicUser(user: StoredUser): MockUser {
   return safeUser;
 }
 
-function getCurrentUser(): StoredUser | undefined {
-  return users.find((user) => user.id === currentUserId);
+/**
+ * Resolve o usuário pelo Bearer token da requisição.
+ * O token simulado identifica o usuário, não a sessão global.
+ */
+function getAuthenticatedUser(
+  request: Request,
+): StoredUser | undefined {
+  const authorization = request.headers.get("Authorization");
+
+  if (!authorization?.startsWith("Bearer ")) {
+    return undefined;
+  }
+
+  const token = authorization.slice("Bearer ".length);
+
+  if (!token.startsWith("mock-token-")) {
+    return undefined;
+  }
+
+  const userId = token.slice("mock-token-".length);
+
+  if (!userId) {
+    return undefined;
+  }
+
+  return users.find((user) => user.id === userId);
 }
 
 function getUserWallet(userId: string): StoredWallet {
@@ -213,9 +225,6 @@ export const handlers = [
     users.push(user);
     saveUsers();
 
-    currentUserId = user.id;
-    saveCurrentUserId(currentUserId);
-
     wallets[user.id] = createEmptyWallet();
     saveWallets();
 
@@ -249,9 +258,6 @@ export const handlers = [
       );
     }
 
-    currentUserId = user.id;
-    saveCurrentUserId(currentUserId);
-
     if (!wallets[user.id]) {
       wallets[user.id] = createEmptyWallet();
       saveWallets();
@@ -263,9 +269,9 @@ export const handlers = [
     });
   }),
 
-  // Consulta a sessão.
-  http.get("*/api/auth/me", () => {
-    const user = getCurrentUser();
+  // Consulta a sessão autenticada.
+  http.get("*/api/auth/me", ({ request }) => {
+    const user = getAuthenticatedUser(request);
 
     if (!user) {
       return HttpResponse.json(
@@ -279,7 +285,7 @@ export const handlers = [
 
   // Atualiza os dados básicos do usuário.
   http.patch("*/api/users/me", async ({ request }) => {
-    const user = getCurrentUser();
+    const user = getAuthenticatedUser(request);
 
     if (!user) {
       return HttpResponse.json(
@@ -320,7 +326,7 @@ export const handlers = [
 
   // Altera a senha.
   http.patch("*/api/users/me/password", async ({ request }) => {
-    const user = getCurrentUser();
+    const user = getAuthenticatedUser(request);
 
     if (!user) {
       return HttpResponse.json(
@@ -369,8 +375,8 @@ export const handlers = [
   }),
 
   // Consulta a carteira conectada.
-  http.get("*/api/wallet", () => {
-    const user = getCurrentUser();
+  http.get("*/api/wallet", ({ request }) => {
+    const user = getAuthenticatedUser(request);
 
     if (!user) {
       return HttpResponse.json(
@@ -384,7 +390,7 @@ export const handlers = [
 
   // Conecta uma carteira simulada.
   http.post("*/api/wallet/connect", async ({ request }) => {
-    const user = getCurrentUser();
+    const user = getAuthenticatedUser(request);
 
     if (!user) {
       return HttpResponse.json(
@@ -417,8 +423,8 @@ export const handlers = [
   }),
 
   // Desconecta a carteira sem apagar o perfil salvo.
-  http.post("*/api/wallet/disconnect", () => {
-    const user = getCurrentUser();
+  http.post("*/api/wallet/disconnect", ({ request }) => {
+    const user = getAuthenticatedUser(request);
 
     if (!user) {
       return HttpResponse.json(
@@ -434,8 +440,8 @@ export const handlers = [
   }),
 
   // Consulta o perfil da carteira.
-  http.get("*/api/wallet/profile", () => {
-    const user = getCurrentUser();
+  http.get("*/api/wallet/profile", ({ request }) => {
+    const user = getAuthenticatedUser(request);
 
     if (!user) {
       return HttpResponse.json(
@@ -451,7 +457,7 @@ export const handlers = [
 
   // Salva o perfil da carteira.
   http.put("*/api/wallet/profile", async ({ request }) => {
-    const user = getCurrentUser();
+    const user = getAuthenticatedUser(request);
 
     if (!user) {
       return HttpResponse.json(
@@ -522,11 +528,19 @@ export const handlers = [
     return HttpResponse.json(profile);
   }),
 
-  // Encerra a sessão sem apagar os dados.
-  http.post("*/api/auth/logout", () => {
-    currentUserId = null;
-    saveCurrentUserId(null);
+  // Encerra a sessão no servidor simulado.
+  http.post("*/api/auth/logout", ({ request }) => {
+    const user = getAuthenticatedUser(request);
 
+    if (!user) {
+      return HttpResponse.json(
+        { message: "Você não está autenticado." },
+        { status: 401 },
+      );
+    }
+
+    // Não existe mais uma sessão global para limpar.
+    // O cliente remove o token após receber sucesso.
     return HttpResponse.json({
       message: "Sessão encerrada.",
     });

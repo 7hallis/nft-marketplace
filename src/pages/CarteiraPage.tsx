@@ -1,14 +1,6 @@
 
 import { useEffect, useState } from "react";
-import {
-  Wallet,
-  UserRound,
-  ShoppingCart,
-  Heart,
-  Tag,
-  Download,
-  CircleHelp,
-} from "lucide-react";
+
 
 import Header from "@/components/header";
 import { Input } from "@/components/ui/input";
@@ -28,34 +20,11 @@ import {
   type WalletProfile,
 } from "@/api/wallet";
 
-import { SidebarLink } from "@/components/layout/SidebarLink";
+
 import { ProfileSidebar } from "@/components/layout/ProfileSidebar";
 
 
-type ProfileRoute =
-  | "/perfil"
-  | "/carteira"
-  | "/atividade"
-  | "/interesses"
-  | "/ofertas"
-  | "/downloads"
-  | "/suporte";
 
-type ProfileLinkItem = {
-  label: string;
-  icon: typeof UserRound;
-  to: ProfileRoute;
-};
-
-const profileLinks = [
-  { label: "Dados do perfil", icon: UserRound, to: "/perfil" },
-  { label: "Carteiras", icon: Wallet, to: "/carteira" },
-  { label: "Atividade", icon: ShoppingCart, to: "/atividade" },
-  { label: "Lista de interesse", icon: Heart, to: "/interesses" },
-  { label: "Ofertas", icon: Tag, to: "/ofertas" },
-  { label: "Arquivos baixados", icon: Download, to: "/downloads" },
-  { label: "Suporte", icon: CircleHelp, to: "/suporte" },
-] satisfies ProfileLinkItem[];
 
 const networkOptions = [
   { value: "ethereum", label: "Ethereum" },

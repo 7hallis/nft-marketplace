@@ -5,7 +5,6 @@ import {
   ChevronDown,
   SlidersHorizontal,
   ArrowUpRight,
-  Sparkles,
   ArrowRight,
   ChevronRight,
   Search,
