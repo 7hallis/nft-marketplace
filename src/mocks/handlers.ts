@@ -861,21 +861,21 @@ export const handlers = [
       );
     }
 
-    const invalidItem = body.items.some(
-      (item) =>
-        !item ||
-        typeof item.id !== "string" ||
-        !item.id.trim() ||
-        !Number.isInteger(item.quantity) ||
-        item.quantity < 1 ||
-        item.quantity > 50 ||
-        typeof item.name !== "string" ||
-        !item.name.trim() ||
-        typeof item.price !== "number" ||
-        !Number.isFinite(item.price) ||
-        item.price < 0 ||
-        typeof item.image !== "string",
-    );
+   const invalidItem = body.items.some(
+  (item) =>
+    !item ||
+    typeof item.id !== "string" ||
+    !item.id.trim() ||
+    !Number.isInteger(item.quantity) ||
+    item.quantity < 1 ||
+    item.quantity > 50 ||
+    typeof item.name !== "string" ||
+    !item.name.trim() ||
+    typeof item.price !== "number" ||
+    !Number.isFinite(item.price) ||
+    item.price < 0 ||
+    typeof item.image !== "string",
+);
 
     if (invalidItem) {
       return HttpResponse.json(
@@ -1057,9 +1057,13 @@ nftSocket.addEventListener("connection", (connection) => {
   console.log("[MSW] WebSocket conectado");
 
   const { client } = toSocketIo(connection);
+   connectedClients.add(client);
 
   client.on("hello", (_event, name) => {
     console.log("[MSW] Evento hello recebido:", name);
     client.emit("greeting", `Olá, ${name}!`);
   });
 });
+const connectedClients = new Set<
+  ReturnType<typeof toSocketIo>["client"]
+>();

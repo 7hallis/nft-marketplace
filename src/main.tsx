@@ -12,6 +12,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { CartProvider } from "@/contexts/CartContext";
 import "@/index.css";
 
+import { socket } from "@/lib/socket";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -26,22 +28,35 @@ const queryClient = new QueryClient({
   },
 });
 
-async function enableMocking() {
+async function enableMocking(): Promise<void> {
   const shouldEnableMocks =
     import.meta.env.DEV ||
     import.meta.env.VITE_ENABLE_MSW === "true";
 
-  if (shouldEnableMocks) {
-    const { worker } = await import("@/mocks/browser");
-
-    await worker.start({
-      onUnhandledRequest: "bypass",
-    });
+  if (!shouldEnableMocks) {
+    console.info("[MSW] Mocking desabilitado.");
+    return;
   }
+
+  const { worker } = await import("@/mocks/browser");
+
+  await worker.start({
+    onUnhandledRequest: "bypass",
+  });
+
+  console.info("[MSW] Mocking enabled.");
 }
-async function bootstrap() {
+function handleOrderEvent() {
+  void queryClient.invalidateQueries({
+    queryKey: ["orders"],
+  });
+}
+async function bootstrap(): Promise<void> {
   await enableMocking();
 
+  socket.connect();
+  socket.on("order:created", handleOrderEvent);
+  socket.on("order:updated", handleOrderEvent);
   ReactDOM.createRoot(
     document.getElementById("root")!,
   ).render(
@@ -58,5 +73,8 @@ async function bootstrap() {
 }
 
 bootstrap().catch((error: unknown) => {
-  console.error("Erro ao inicializar a aplicação:", error);
+  console.error(
+    "Erro ao inicializar a aplicação:",
+    error,
+  );
 });

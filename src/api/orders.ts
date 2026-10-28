@@ -6,6 +6,14 @@ export interface CreateOrderItem {
   quantity: number;
 }
 
+export interface CreateOrderItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  image: string;
+}
+
 export interface CreateOrderData {
   items: CreateOrderItem[];
   wallet: string;

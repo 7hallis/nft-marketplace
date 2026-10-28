@@ -1,3 +1,4 @@
+
 import Header from "@/components/header";
 import {
   Breadcrumb,
@@ -14,7 +15,6 @@ import nft4 from "../assets/nft4.png";
 import { Footer } from "@/components/footer";
 import CarrinhoPage from "@/components/carrinho";
 import { useState } from "react";
-
 
 const recommendedNfts = [
   {
@@ -49,55 +49,62 @@ const recommendedNfts = [
   },
 ];
 
-
 export default function Carrinho() {
-    const [search, setSearch] = useState("");
+  const [search, setSearch] = useState("");
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-[#110B08] font-mono text-[#E8D9CE]">
-      <div className="mx-auto w-full max-w-6xl px-4 py-4 sm:px-6 sm:py-6 lg:px-8">
-        <Header search={search} setSearch={setSearch}/>
+      <div className="mx-auto w-full max-w-6xl px-0 py-0 sm:px-6 sm:py-6 lg:px-8">
 
-        <Breadcrumb className="mb-4 text-xs text-[#B39463] sm:mb-6 sm:text-sm">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink render={<a href="/home" />}>
-                Início
-              </BreadcrumbLink>
-            </BreadcrumbItem>
+        {/* Header: somente desktop */}
+        <div className="hidden lg:block">
+          <Header search={search} setSearch={setSearch} />
+        </div>
 
-            <BreadcrumbSeparator>/</BreadcrumbSeparator>
+        {/* Breadcrumb: somente desktop */}
+        <div className="hidden lg:block">
+          <Breadcrumb className="mb-6 text-sm text-[#B39463]">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink render={<a href="/home" />}>
+                  Início
+                </BreadcrumbLink>
+              </BreadcrumbItem>
 
-            <BreadcrumbItem>
-              <BreadcrumbLink render={<a href="/mercado" />}>
-                Mercado
-              </BreadcrumbLink>
-            </BreadcrumbItem>
+              <BreadcrumbSeparator>/</BreadcrumbSeparator>
 
-            <BreadcrumbSeparator>/</BreadcrumbSeparator>
+              <BreadcrumbItem>
+                <BreadcrumbLink render={<a href="/mercado" />}>
+                  Mercado
+                </BreadcrumbLink>
+              </BreadcrumbItem>
 
-            <BreadcrumbItem>
-              <BreadcrumbPage>Carrinho</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+              <BreadcrumbSeparator>/</BreadcrumbSeparator>
 
-        {/* Conteúdo principal do carrinho */}
+              <BreadcrumbItem>
+                <BreadcrumbPage>Carrinho</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        </div>
+
+        {/* Carrinho: visível no mobile e desktop */}
         <section className="min-w-0">
           <CarrinhoPage />
         </section>
 
-        {/* Produtos recomendados */}
-        <section className="mt-8 w-full sm:mt-10">
+        {/* Produtos recomendados: somente desktop */}
+        <section className="mt-10 hidden w-full lg:block">
           <div className="border-b border-[#CFB28C]/30">
-            <h2 className="pb-2 text-xs font-bold text-[#D98845] sm:text-sm">
+            <h2 className="pb-2 text-sm font-bold text-[#D98845]">
               Colecionadores também viram
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-4 sm:grid-cols-3 sm:gap-4 lg:grid-cols-5">
+          <div className="grid grid-cols-5 gap-4 pt-4">
             {recommendedNfts.map((item) => (
               <article key={item.name} className="min-w-0">
-                <div className="bg-[#241612] p-2 sm:p-3">
+                <div className="bg-[#241612] p-3">
                   <Image
                     src={item.image}
                     alt={item.alt}
@@ -105,7 +112,7 @@ export default function Carrinho() {
                   />
                 </div>
 
-                <div className="pt-2 text-[10px] leading-tight text-[#E8D9CE] sm:text-xs">
+                <div className="pt-2 text-xs leading-tight text-[#E8D9CE]">
                   <p className="truncate">{item.name}</p>
                   <p className="mt-1 font-bold text-[#D98845]">
                     {item.price}
@@ -125,7 +132,10 @@ export default function Carrinho() {
           </div>
         </section>
 
-        <Footer />
+        {/* Footer: somente desktop */}
+        <div className="hidden lg:block">
+          <Footer />
+        </div>
       </div>
     </main>
   );
