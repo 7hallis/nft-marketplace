@@ -14,7 +14,7 @@ import Carrinho from "@/pages/CartPage";
 import Perfil from "@/pages/PerfilPage";
 import Carteira from "@/pages/CarteiraPage";
 import NFTDetailsPage from "@/pages/NFTDetailsPage";
-
+import { PlaceholderPage } from "@/pages/src/pages/PlaceholderPage"; 
 
 const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -74,6 +74,37 @@ const NFTDetailsRoute = createRoute({
   component: NFTDetailsRouteComponent,
 });
 
+const atividadeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/atividade",
+  component: () => <PlaceholderPage title="Atividade" />,
+});
+
+const interessesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/interesses",
+  component: () => <PlaceholderPage title="Lista de interesse" />,
+});
+
+const ofertasRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/ofertas",
+  component: () => <PlaceholderPage title="Ofertas" />,
+});
+
+const downloadsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/downloads",
+  component: () => <PlaceholderPage title="Arquivos baixados" />,
+});
+
+const suporteRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/suporte",
+  component: () => <PlaceholderPage title="Suporte" />,
+});
+
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   cartRoute,
@@ -82,6 +113,11 @@ const routeTree = rootRoute.addChildren([
   carrinhoRoute,
   perfilRoute,
   carteiraRoute,
+  atividadeRoute,
+  interessesRoute,
+  ofertasRoute,
+  downloadsRoute,
+  suporteRoute,
   NFTDetailsRoute,
 ]);
 

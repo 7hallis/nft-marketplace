@@ -31,7 +31,6 @@ async function enableMocking() {
     });
   }
 }
-
 async function bootstrap() {
   await enableMocking();
 

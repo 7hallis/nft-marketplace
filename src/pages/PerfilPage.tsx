@@ -24,16 +24,33 @@ import {
   updateProfile,
   type User,
 } from "@/api/auth";
+import { SidebarLink } from "@/components/layout/SidebarLink";
+import { ProfileSidebar } from "@/components/layout/ProfileSidebar";
+
+type ProfileRoute =
+  | "/perfil"
+  | "/carteira"
+  | "/atividade"
+  | "/interesses"
+  | "/ofertas"
+  | "/downloads"
+  | "/suporte";
+
+type ProfileLinkItem = {
+  label: string;
+  icon: typeof UserRound;
+  to: ProfileRoute;
+};
 
 const profileLinks = [
-  { label: "Dados do perfil", icon: UserRound },
-  { label: "Carteiras", icon: Wallet },
-  { label: "Atividade", icon: ShoppingCart },
-  { label: "Lista de interesse", icon: Heart },
-  { label: "Ofertas", icon: Tag },
-  { label: "Arquivos baixados", icon: Download },
-  { label: "Suporte", icon: CircleHelp },
-];
+  { label: "Dados do perfil", icon: UserRound, to: "/perfil" },
+  { label: "Carteiras", icon: Wallet, to: "/carteira" },
+  { label: "Atividade", icon: ShoppingCart, to: "/atividade" },
+  { label: "Lista de interesse", icon: Heart, to: "/interesses" },
+  { label: "Ofertas", icon: Tag, to: "/ofertas" },
+  { label: "Arquivos baixados", icon: Download, to: "/downloads" },
+  { label: "Suporte", icon: CircleHelp, to: "/suporte" },
+] satisfies ProfileLinkItem[];
 
 const profileFields = [
   { label: "Nome de exibição", id: "displayName", required: true },
@@ -88,13 +105,10 @@ export default function PerfilPage() {
   const [visiblePasswords, setVisiblePasswords] = useState<
     Record<string, boolean>
   >({});
-
   const [avatar, setAvatar] = useState<string | null>(loadAvatar);
   const [avatarError, setAvatarError] = useState("");
-
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -180,7 +194,7 @@ export default function PerfilPage() {
     });
   }
 
-  async function handlePasswordChange(event: FormEvent<HTMLFormElement>) {
+  function handlePasswordChange(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     setPasswordError("");
@@ -206,10 +220,7 @@ export default function PerfilPage() {
       return;
     }
 
-    passwordMutation.mutate({
-      currentPassword,
-      newPassword,
-    });
+    passwordMutation.mutate({ currentPassword, newPassword });
   }
 
   function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
@@ -312,38 +323,7 @@ export default function PerfilPage() {
       <Header search={search} setSearch={setSearch} />
 
       <main className="mx-auto grid w-full max-w-5xl grid-cols-1 justify-center gap-6 px-6 py-6 md:grid-cols-[216px_minmax(0,600px)]">
-        <aside className="h-fit border border-[#D98845]/50 bg-[#241612] p-2">
-          <h1 className="mb-1 px-1 py-1 text-xs font-bold text-[#F4EEE8]">
-            Meu perfil
-          </h1>
-
-          <nav aria-label="Navegação do perfil" className="flex flex-col">
-            {profileLinks.map(({ label, icon: Icon }, index) => (
-              <Link
-                key={label}
-                to="/perfil"
-                aria-current={index === 0 ? "page" : undefined}
-                className={`flex items-center gap-2 border-l-2 px-2 py-2 text-[10px] transition-colors hover:bg-[#55321F]/40 hover:text-[#F4EEE8] ${
-                  index === 0
-                    ? "border-[#D98845] text-[#D98845]"
-                    : "border-transparent text-[#D98845]/80"
-                }`}
-              >
-                <Icon aria-hidden="true" size={12} />
-                <span>{label}</span>
-              </Link>
-            ))}
-
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex items-center gap-2 border-l-2 border-transparent px-2 py-2 text-left text-[10px] text-[#D98845]/80 transition-colors hover:bg-[#55321F]/40 hover:text-[#F4EEE8]"
-            >
-              <LogOut aria-hidden="true" size={12} />
-              <span>Sair</span>
-            </button>
-          </nav>
-        </aside>
+       <ProfileSidebar />
 
         <section className="min-w-0">
           <h2 className="mb-5 text-xs font-semibold text-[#F4EEE8]">

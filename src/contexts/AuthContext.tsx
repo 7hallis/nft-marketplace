@@ -6,7 +6,11 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   getCurrentUser,
   login as loginRequest,
@@ -26,11 +30,17 @@ interface AuthContextType {
   logout: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(
+  undefined,
+);
 
 const USER_QUERY_KEY = ["auth", "user"];
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({
+  children,
+}: {
+  children: ReactNode;
+}) {
   const queryClient = useQueryClient();
   const [sessionChecked, setSessionChecked] = useState(false);
 
@@ -49,37 +59,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useMutation({
     mutationFn: loginRequest,
-    onSuccess: (response) => {
-      queryClient.setQueryData(USER_QUERY_KEY, response.user);
+    onSuccess: ({ user }) => {
+      queryClient.setQueryData<User | null>(
+        USER_QUERY_KEY,
+        user,
+      );
     },
   });
 
   const registerMutation = useMutation({
     mutationFn: registerRequest,
-    onSuccess: (response) => {
-      queryClient.setQueryData(USER_QUERY_KEY, response.user);
+    onSuccess: ({ user }) => {
+      queryClient.setQueryData<User | null>(
+        USER_QUERY_KEY,
+        user,
+      );
     },
   });
 
   const logoutMutation = useMutation({
     mutationFn: logoutRequest,
     onSuccess: () => {
-      queryClient.setQueryData(USER_QUERY_KEY, null);
-      queryClient.removeQueries({ queryKey: USER_QUERY_KEY });
+      queryClient.setQueryData<User | null>(
+        USER_QUERY_KEY,
+        null,
+      );
     },
   });
 
-  async function login(data: LoginData) {
+  async function login(data: LoginData): Promise<User> {
     const response = await loginMutation.mutateAsync(data);
     return response.user;
   }
 
-  async function register(data: RegisterData) {
+  async function register(data: RegisterData): Promise<User> {
     const response = await registerMutation.mutateAsync(data);
     return response.user;
   }
 
-  async function logout() {
+  async function logout(): Promise<void> {
     await logoutMutation.mutateAsync();
   }
 
@@ -105,7 +123,9 @@ export function useAuth() {
   const context = useContext(AuthContext);
 
   if (!context) {
-    throw new Error("useAuth deve ser usado dentro de AuthProvider.");
+    throw new Error(
+      "useAuth deve ser usado dentro de AuthProvider.",
+    );
   }
 
   return context;
