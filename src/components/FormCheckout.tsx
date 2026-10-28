@@ -1,7 +1,12 @@
 
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { useMutation } from "@tanstack/react-query";
 import { CheckCircle2, ShoppingBag } from "lucide-react";
+
+import { createOrder, type Order } from "@/api/orders";
+import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "@/contexts/CartContext";
 
 import Image from "./ui/image";
 import { Checkbox } from "./ui/checkbox";
@@ -24,8 +29,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-import { useCart } from "@/contexts/CartContext";
 
 const NETWORK_FEE = 0.016;
 
@@ -78,21 +81,6 @@ type CheckoutForm = {
   observation: string;
 };
 
-type Order = {
-  id: string;
-  date: string;
-  total: number;
-  wallet: string;
-  network: string;
-  items: {
-    id: string;
-    name: string;
-    quantity: number;
-    price: number;
-    image: string;
-  }[];
-};
-
 const initialForm: CheckoutForm = {
   displayName: "",
   username: "",
@@ -111,15 +99,42 @@ function formatEth(value: number) {
   return `${value.toFixed(3)} ETH`;
 }
 
-function generateOrderId() {
-  return `KURIO-${Date.now().toString(36).toUpperCase()}-${Math.random()
-    .toString(36)
-    .slice(2, 8)
-    .toUpperCase()}`;
+function getApiErrorMessage(error: unknown): string | null {
+  if (
+    typeof error !== "object" ||
+    error === null ||
+    !("response" in error)
+  ) {
+    return null;
+  }
+
+  const response = error.response;
+
+  if (
+    typeof response !== "object" ||
+    response === null ||
+    !("data" in response)
+  ) {
+    return null;
+  }
+
+  const data = response.data;
+
+  if (
+    typeof data === "object" &&
+    data !== null &&
+    "message" in data &&
+    typeof data.message === "string"
+  ) {
+    return data.message;
+  }
+
+  return null;
 }
 
 export default function FormChekout() {
   const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
   const { items, itemCount, clearCart } = useCart();
 
   const [form, setForm] = useState<CheckoutForm>(initialForm);
@@ -131,6 +146,10 @@ export default function FormChekout() {
   const [error, setError] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const orderMutation = useMutation({
+    mutationFn: createOrder,
+  });
 
   const subtotal = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -166,12 +185,23 @@ export default function FormChekout() {
     }
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
 
+    if (orderMutation.isPending) {
+      return;
+    }
+
+    if (!isAuthenticated || !user) {
+      setError("Faça login para finalizar sua compra.");
+      return;
+    }
+
     if (items.length === 0) {
-      setError("Seu carrinho está vazio. Adicione um NFT antes de continuar.");
+      setError(
+        "Seu carrinho está vazio. Adicione um NFT antes de continuar.",
+      );
       return;
     }
 
@@ -185,7 +215,9 @@ export default function FormChekout() {
       !form.email.trim() ||
       !selectedWallet
     ) {
-      setError("Preencha todos os campos obrigatórios e selecione uma carteira.");
+      setError(
+        "Preencha todos os campos obrigatórios e selecione uma carteira.",
+      );
       return;
     }
 
@@ -194,74 +226,105 @@ export default function FormChekout() {
       return;
     }
 
-    if (
-      useOtherWallet &&
-      !form.secondaryWallet.trim()
-    ) {
+    if (useOtherWallet && !form.secondaryWallet.trim()) {
       setError("Informe o endereço da carteira secundária.");
       return;
     }
 
-    const orderItems = items.map((item) => ({
-      id: item.id,
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-      image: item.image,
-    }));
+    try {
+      const createdOrder = await orderMutation.mutateAsync({
+        items: items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          image: item.image,
+        })),
+        wallet: selectedWallet,
+        network: form.network,
+        walletAddress: form.walletAddress.trim(),
+        walletType: form.walletType,
+        displayName: form.displayName.trim(),
+        username: form.username.trim(),
+        profileName: form.profileName.trim(),
+        email: form.email.trim(),
+        secondaryWallet: form.secondaryWallet.trim(),
+        referralCode: form.referralCode.trim(),
+        ensName: form.ensName.trim(),
+        observation: form.observation.trim(),
+        promoCode:
+          validDiscount > 0 ? promoCode.trim().toUpperCase() : "",
+      });
 
-    const newOrder: Order = {
-      id: generateOrderId(),
-      date: new Date().toLocaleString("pt-BR"),
-      total,
-      wallet: selectedWallet,
-      network: form.network,
-      items: orderItems,
-    };
-
-    setOrder(newOrder);
-    setDialogOpen(true);
+      setOrder(createdOrder);
+      setDialogOpen(true);
+    } catch (requestError: unknown) {
+      setError(
+        getApiErrorMessage(requestError) ??
+          "Não foi possível registrar o pedido. Tente novamente.",
+      );
+    }
   }
 
   function finishOrder() {
     clearCart();
     setDialogOpen(false);
+    setOrder(null);
     void navigate({ to: "/mercado" });
   }
 
+  // Confirmação após a API retornar o pedido.
   if (order && dialogOpen) {
     return (
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+        }}
+      >
         <DialogContent className="max-h-[85vh] overflow-y-auto border border-[#D98845]/50 bg-[#1C1410] p-6 text-[#E8D9CE] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center justify-center gap-2 text-center text-lg font-bold text-[#D98845]">
               <CheckCircle2 className="h-6 w-6" />
               Compra simulada confirmada
             </DialogTitle>
+
             <DialogDescription className="text-center text-[#CFB28C]">
               O pedido foi registrado nesta demonstração do Kurio. Nenhuma
               transação real foi enviada à blockchain.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-3 border-y border-[#D98845]/30 py-4 text-xs sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3 border-y border-[#D98845]/30 py-4 text-xs">
             <div>
               <p className="text-[#B39463]">Pedido</p>
               <p className="mt-1 break-all font-bold text-[#D98845]">
                 {order.id}
               </p>
             </div>
+
             <div>
               <p className="text-[#B39463]">Data</p>
-              <p className="mt-1">{order.date}</p>
+              <p className="mt-1">
+                {new Date(order.date).toLocaleString("pt-BR")}
+              </p>
             </div>
+
             <div>
               <p className="text-[#B39463]">Carteira selecionada</p>
               <p className="mt-1">{order.wallet}</p>
             </div>
+
             <div>
               <p className="text-[#B39463]">Rede selecionada</p>
               <p className="mt-1">{order.network}</p>
+            </div>
+
+            <div>
+              <p className="text-[#B39463]">Status</p>
+              <p className="mt-1 text-[#D98845]">
+                {order.status === "confirmed" ? "Confirmado" : order.status}
+              </p>
             </div>
           </div>
 
@@ -276,12 +339,14 @@ export default function FormChekout() {
                   alt={item.name}
                   className="h-14 w-14 rounded-md object-cover"
                 />
+
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-xs">{item.name}</p>
                   <p className="mt-1 text-[10px] text-[#B39463]">
                     Quantidade: {item.quantity}
                   </p>
                 </div>
+
                 <p className="shrink-0 text-xs font-bold text-[#D98845]">
                   {formatEth(item.price * item.quantity)}
                 </p>
@@ -291,7 +356,9 @@ export default function FormChekout() {
 
           <div className="flex justify-between border-t border-[#D98845]/30 pt-4 font-bold">
             <span>Total do pedido</span>
-            <span className="text-[#D98845]">{formatEth(order.total)}</span>
+            <span className="text-[#D98845]">
+              {formatEth(order.total)}
+            </span>
           </div>
 
           <button
@@ -310,12 +377,15 @@ export default function FormChekout() {
     return (
       <section className="rounded-md border border-[#CFB28C]/20 bg-[#21150F] p-8 text-center">
         <ShoppingBag className="mx-auto h-8 w-8 text-[#D98845]" />
+
         <h2 className="mt-3 text-lg font-bold text-white">
           Seu carrinho está vazio
         </h2>
+
         <p className="mt-2 text-sm text-[#B39463]">
           Adicione NFTs ao carrinho antes de finalizar a compra.
         </p>
+
         <button
           type="button"
           onClick={() => void navigate({ to: "/mercado" })}
@@ -337,6 +407,7 @@ export default function FormChekout() {
           <h1 className="text-lg font-bold text-white">
             Perfil do colecionador
           </h1>
+
           <p className="mt-1 text-xs text-[#B39463]">
             Campos marcados com * são obrigatórios.
           </p>
@@ -347,7 +418,9 @@ export default function FormChekout() {
               <Input
                 required
                 value={form.displayName}
-                onChange={(e) => updateField("displayName", e.target.value)}
+                onChange={(event) =>
+                  updateField("displayName", event.target.value)
+                }
                 className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
               />
             </Field>
@@ -357,7 +430,9 @@ export default function FormChekout() {
               <Input
                 required
                 value={form.username}
-                onChange={(e) => updateField("username", e.target.value)}
+                onChange={(event) =>
+                  updateField("username", event.target.value)
+                }
                 className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
               />
             </Field>
@@ -367,16 +442,21 @@ export default function FormChekout() {
               <Select
                 value={form.network}
                 onValueChange={(value) =>
-                updateField("network", typeof value === "string" ? value : "")
-              }
+                  updateField(
+                    "network",
+                    typeof value === "string" ? value : "",
+                  )
+                }
                 items={blockchainNetworks}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Selecione uma rede" />
                 </SelectTrigger>
+
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Redes blockchain</SelectLabel>
+
                     {blockchainNetworks.map((item) => (
                       <SelectItem key={item.value} value={item.value}>
                         {item.label}
@@ -392,7 +472,9 @@ export default function FormChekout() {
               <Input
                 required
                 value={form.profileName}
-                onChange={(e) => updateField("profileName", e.target.value)}
+                onChange={(event) =>
+                  updateField("profileName", event.target.value)
+                }
                 className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
               />
             </Field>
@@ -402,7 +484,9 @@ export default function FormChekout() {
               <Input
                 required
                 value={form.walletAddress}
-                onChange={(e) => updateField("walletAddress", e.target.value)}
+                onChange={(event) =>
+                  updateField("walletAddress", event.target.value)
+                }
                 placeholder="Endereço público da carteira"
                 className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
               />
@@ -412,7 +496,9 @@ export default function FormChekout() {
               <FieldLabel>ENS ou carteira secundária</FieldLabel>
               <Input
                 value={form.secondaryWallet}
-                onChange={(e) => updateField("secondaryWallet", e.target.value)}
+                onChange={(event) =>
+                  updateField("secondaryWallet", event.target.value)
+                }
                 placeholder="Opcional"
                 className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
               />
@@ -423,16 +509,21 @@ export default function FormChekout() {
               <Select
                 value={form.walletType}
                 onValueChange={(value) =>
-                  updateField("walletType", typeof value === "string" ? value : "")
+                  updateField(
+                    "walletType",
+                    typeof value === "string" ? value : "",
+                  )
                 }
                 items={walletTypes}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Selecione uma carteira" />
                 </SelectTrigger>
+
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Carteiras</SelectLabel>
+
                     {walletTypes.map((item) => (
                       <SelectItem key={item.value} value={item.value}>
                         {item.label}
@@ -447,7 +538,9 @@ export default function FormChekout() {
               <FieldLabel>Código de indicação</FieldLabel>
               <Input
                 value={form.referralCode}
-                onChange={(e) => updateField("referralCode", e.target.value)}
+                onChange={(event) =>
+                  updateField("referralCode", event.target.value)
+                }
                 className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
               />
             </Field>
@@ -458,7 +551,9 @@ export default function FormChekout() {
                 required
                 type="email"
                 value={form.email}
-                onChange={(e) => updateField("email", e.target.value)}
+                onChange={(event) =>
+                  updateField("email", event.target.value)
+                }
                 className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
               />
             </Field>
@@ -467,7 +562,9 @@ export default function FormChekout() {
               <FieldLabel>Nome ENS</FieldLabel>
               <Input
                 value={form.ensName}
-                onChange={(e) => updateField("ensName", e.target.value)}
+                onChange={(event) =>
+                  updateField("ensName", event.target.value)
+                }
                 placeholder="Opcional"
                 className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
               />
@@ -478,8 +575,11 @@ export default function FormChekout() {
             <Checkbox
               id="use-other-wallet"
               checked={useOtherWallet}
-              onCheckedChange={(checked) => setUseOtherWallet(checked === true)}
+              onCheckedChange={(checked) =>
+                setUseOtherWallet(checked === true)
+              }
             />
+
             <label
               htmlFor="use-other-wallet"
               className="cursor-pointer text-xs text-[#D98845]"
@@ -494,7 +594,9 @@ export default function FormChekout() {
               <Input
                 required
                 value={form.secondaryWallet}
-                onChange={(e) => updateField("secondaryWallet", e.target.value)}
+                onChange={(event) =>
+                  updateField("secondaryWallet", event.target.value)
+                }
                 placeholder="Endereço público"
                 className="border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
               />
@@ -505,7 +607,9 @@ export default function FormChekout() {
             <FieldLabel>Observações (opcional)</FieldLabel>
             <Textarea
               value={form.observation}
-              onChange={(e) => updateField("observation", e.target.value)}
+              onChange={(event) =>
+                updateField("observation", event.target.value)
+              }
               className="min-h-32 border-[#D98845]/40 bg-[#1C1410] text-[#E8D9CE]"
             />
           </Field>
@@ -524,11 +628,14 @@ export default function FormChekout() {
                   alt={item.alt}
                   className="h-16 w-16 shrink-0 rounded-md object-cover"
                 />
+
                 <div className="min-w-0 flex-1">
                   <p className="break-words text-xs">{item.name}</p>
+
                   <p className="mt-1 text-[10px] text-[#B39463]">
                     {item.quantity} × {formatEth(item.price)}
                   </p>
+
                   <p className="mt-1 text-xs font-bold text-[#D98845]">
                     {formatEth(item.price * item.quantity)}
                   </p>
@@ -538,17 +645,22 @@ export default function FormChekout() {
           </div>
 
           <div className="mt-5 border-t border-[#CFB28C]/25 pt-4">
-            <label className="text-xs text-[#B39463]" htmlFor="checkout-promo">
+            <label
+              className="text-xs text-[#B39463]"
+              htmlFor="checkout-promo"
+            >
               Código promocional
             </label>
+
             <div className="mt-2 flex">
               <Input
                 id="checkout-promo"
                 value={promoCode}
-                onChange={(e) => setPromoCode(e.target.value)}
+                onChange={(event) => setPromoCode(event.target.value)}
                 placeholder="KURIO10"
                 className="min-w-0 border-[#D98845]/40 bg-[#110B08] text-xs"
               />
+
               <button
                 type="button"
                 onClick={applyPromo}
@@ -557,8 +669,12 @@ export default function FormChekout() {
                 Aplicar
               </button>
             </div>
+
             {promoMessage && (
-              <p aria-live="polite" className="mt-2 text-[10px] text-[#D98845]">
+              <p
+                aria-live="polite"
+                className="mt-2 text-[10px] text-[#D98845]"
+              >
                 {promoMessage}
               </p>
             )}
@@ -569,10 +685,14 @@ export default function FormChekout() {
               <dt className="text-[#B39463]">Subtotal</dt>
               <dd>{formatEth(subtotal)}</dd>
             </div>
+
             <div className="flex justify-between gap-3">
               <dt className="text-[#B39463]">Desconto</dt>
-              <dd className="text-[#D98845]">− {formatEth(validDiscount)}</dd>
+              <dd className="text-[#D98845]">
+                − {formatEth(validDiscount)}
+              </dd>
             </div>
+
             <div className="flex justify-between gap-3">
               <dt className="text-[#B39463]">Taxa de rede estimada</dt>
               <dd>{formatEth(networkFee)}</dd>
@@ -584,7 +704,10 @@ export default function FormChekout() {
             <span className="text-[#D98845]">{formatEth(total)}</span>
           </div>
 
-          <h3 className="mt-6 text-sm font-semibold">Carteira para a simulação</h3>
+          <h3 className="mt-6 text-sm font-semibold">
+            Carteira para a simulação
+          </h3>
+
           <p className="mt-1 text-[10px] text-[#B39463]">
             A seleção não conecta uma carteira real.
           </p>
@@ -607,6 +730,7 @@ export default function FormChekout() {
                   onChange={() => setSelectedWallet(wallet.value)}
                   className="accent-[#D98845]"
                 />
+
                 <span className="text-[#E8D9CE]">{wallet.label}</span>
               </label>
             ))}
@@ -623,9 +747,12 @@ export default function FormChekout() {
 
           <button
             type="submit"
-            className="mt-5 w-full rounded-sm bg-[#D98845] p-3 text-xs font-bold text-[#110B08] transition-colors hover:bg-[#E8A15F]"
+            disabled={orderMutation.isPending}
+            className="mt-5 w-full rounded-sm bg-[#D98845] p-3 text-xs font-bold text-[#110B08] transition-colors hover:bg-[#E8A15F] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Confirmar compra simulada
+            {orderMutation.isPending
+              ? "Registrando pedido..."
+              : "Confirmar compra simulada"}
           </button>
 
           <p className="mt-3 text-center text-[10px] text-[#B39463]">
@@ -634,30 +761,44 @@ export default function FormChekout() {
         </aside>
       </form>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog
+        open={dialogOpen && order !== null}
+        onOpenChange={setDialogOpen}
+      >
         <DialogContent className="border border-[#D98845]/50 bg-[#1C1410] text-[#E8D9CE] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-[#D98845]">
               Pedido registrado
             </DialogTitle>
+
             <DialogDescription className="text-[#CFB28C]">
-              O pedido foi registrado localmente para demonstração. Não existe
-              hash de transação nem confirmação na blockchain.
+              O pedido foi registrado na simulação do Kurio. Não existe hash
+              de transação nem confirmação na blockchain.
             </DialogDescription>
           </DialogHeader>
+
           {order && (
             <div className="space-y-4">
               <div className="rounded-md bg-[#241612] p-3 text-xs">
-                <p className="text-[#B39463]">Identificador do pedido</p>
+                <p className="text-[#B39463]">
+                  Identificador do pedido
+                </p>
+
                 <p className="mt-1 break-all font-bold text-[#D98845]">
                   {order.id}
                 </p>
+
                 <p className="mt-3 text-[#B39463]">Total</p>
-                <p className="mt-1 font-bold">{formatEth(order.total)}</p>
+
+                <p className="mt-1 font-bold">
+                  {formatEth(order.total)}
+                </p>
               </div>
+
               <p className="text-xs text-[#B39463]">
                 {order.items.length} tipo(s) de NFT no pedido.
               </p>
+
               <button
                 type="button"
                 onClick={finishOrder}

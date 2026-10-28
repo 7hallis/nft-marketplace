@@ -6,21 +6,23 @@ import { api } from "@/api/client";
 
 type OrderStatus = "pending" | "confirmed" | "declined";
 
+interface OrderItem {
+  nftId: string;
+  name: string;
+  image: string;
+  quantity: number;
+  unitPrice: number | string;
+}
+
 interface Order {
   id: string;
   status: OrderStatus;
-  createdAt: string;
-  items: {
-    nftId: string;
-    name: string;
-    image: string;
-    quantity: number;
-    unitPrice: string;
-  }[];
-  total: string;
+  date: string;
+  items: OrderItem[];
+  total: number | string;
 }
 
-function formatEth(value: string | number) {
+function formatEth(value: number | string) {
   const amount = Number(value);
 
   if (!Number.isFinite(amount)) return `${value} ETH`;
@@ -33,9 +35,9 @@ function formatEth(value: string | number) {
 function formatDate(value: string) {
   const date = new Date(value);
 
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleString("pt-BR");
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString("pt-BR");
 }
 
 function statusLabel(status: OrderStatus) {
@@ -47,6 +49,30 @@ function statusLabel(status: OrderStatus) {
     default:
       return "Pendente";
   }
+}
+
+function getErrorMessage(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error
+  ) {
+    const response = (
+      error as {
+        response?: { status?: number };
+      }
+    ).response;
+
+    if (response?.status === 401) {
+      return "Sua sessão não foi reconhecida. Entre novamente para consultar seus pedidos.";
+    }
+
+    if (response?.status && response.status >= 500) {
+      return "O serviço está indisponível no momento. Tente novamente em instantes.";
+    }
+  }
+
+  return "Não foi possível consultar seus pedidos. Verifique sua conexão e tente novamente.";
 }
 
 export default function OrderHistoryPage() {
@@ -71,22 +97,33 @@ export default function OrderHistoryPage() {
         </header>
 
         {ordersQuery.isPending && (
-          <p className="text-[#B7A79B]">Carregando seus pedidos...</p>
+          <section
+            className="rounded-2xl border border-white/10 bg-white/[0.03] p-6"
+            aria-live="polite"
+          >
+            <p className="text-[#B7A79B]">
+              Carregando seus pedidos...
+            </p>
+          </section>
         )}
 
         {ordersQuery.isError && (
-          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+          <section
+            className="rounded-2xl border border-white/10 bg-white/[0.03] p-6"
+            role="alert"
+          >
             <h2 className="text-lg font-semibold">
               Não foi possível carregar os pedidos
             </h2>
+
             <p className="mt-2 text-sm text-[#B7A79B]">
-              A API de pedidos pode ainda não estar configurada.
-              Confira sua sessão e tente novamente.
+              {getErrorMessage(ordersQuery.error)}
             </p>
+
             <button
               type="button"
               onClick={() => void ordersQuery.refetch()}
-              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#E99A4A] px-4 py-2 font-medium text-[#110B08]"
+              className="mt-5 inline-flex items-center gap-2 rounded-lg bg-[#E99A4A] px-4 py-2 font-medium text-[#110B08] hover:opacity-90"
             >
               <RefreshCw size={16} />
               Tentar novamente
@@ -96,13 +133,19 @@ export default function OrderHistoryPage() {
 
         {ordersQuery.isSuccess && ordersQuery.data.length === 0 && (
           <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-10 text-center">
-            <Package className="mx-auto mb-4 text-[#E99A4A]" size={36} />
+            <Package
+              className="mx-auto mb-4 text-[#E99A4A]"
+              size={36}
+            />
+
             <h2 className="text-xl font-semibold">
               Você ainda não tem pedidos
             </h2>
+
             <p className="mt-2 text-sm text-[#B7A79B]">
               Quando você realizar uma compra, ela aparecerá aqui.
             </p>
+
             <Link
               to="/mercado"
               className="mt-6 inline-flex rounded-lg bg-[#E99A4A] px-5 py-3 font-semibold text-[#110B08] hover:opacity-90"
@@ -120,13 +163,15 @@ export default function OrderHistoryPage() {
                 className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6"
               >
                 <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                  <div>
-                    <p className="text-sm text-[#B7A79B]">
+                  <div className="min-w-0">
+                    <p className="break-all text-sm text-[#B7A79B]">
                       Pedido #{order.id}
                     </p>
+
                     <p className="mt-1 text-sm">
-                      {formatDate(order.createdAt)}
+                      {formatDate(order.date)}
                     </p>
+
                     <span className="mt-3 inline-flex rounded-full border border-[#E99A4A]/30 bg-[#E99A4A]/10 px-3 py-1 text-xs text-[#E99A4A]">
                       {statusLabel(order.status)}
                     </span>
@@ -134,9 +179,11 @@ export default function OrderHistoryPage() {
 
                   <div className="sm:text-right">
                     <p className="text-sm text-[#B7A79B]">Total</p>
+
                     <p className="mt-1 text-xl font-bold text-[#E99A4A]">
                       {formatEth(order.total)}
                     </p>
+
                     <p className="mt-1 text-sm text-[#B7A79B]">
                       {order.items.reduce(
                         (total, item) => total + item.quantity,
@@ -148,10 +195,8 @@ export default function OrderHistoryPage() {
                 </div>
 
                 <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-4">
-                  <p className="text-sm text-[#B7A79B]">
-                    {order.items
-                      .map((item) => item.name)
-                      .join(", ")}
+                  <p className="min-w-0 flex-1 text-sm text-[#B7A79B]">
+                    {order.items.map((item) => item.name).join(", ")}
                   </p>
 
                   <Link

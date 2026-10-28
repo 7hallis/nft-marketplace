@@ -15,30 +15,29 @@ interface OrderItem {
   name: string;
   image: string;
   quantity: number;
-  unitPrice: string;
+  unitPrice: number | string;
 }
 
 interface Order {
   id: string;
   status: OrderStatus;
-  createdAt: string;
+  date: string;
   items: OrderItem[];
-  subtotal: string;
-  discount: string;
-  networkFee: string;
-  total: string;
+  subtotal: number | string;
+  discount: number | string;
+  networkFee: number | string;
+  total: number | string;
   couponCode?: string;
-  walletType: string;
+  wallet: string;
   network: string;
+  walletAddress?: string;
   transactionReference?: string;
 }
 
-function formatEth(value: string | number) {
+function formatEth(value: number | string) {
   const amount = Number(value);
 
-  if (!Number.isFinite(amount)) {
-    return `${value} ETH`;
-  }
+  if (!Number.isFinite(amount)) return `${value} ETH`;
 
   return `${amount.toLocaleString("pt-BR", {
     maximumFractionDigits: 8,
@@ -48,9 +47,7 @@ function formatEth(value: string | number) {
 function formatDate(value: string) {
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
+  if (Number.isNaN(date.getTime())) return value;
 
   return date.toLocaleString("pt-BR");
 }
@@ -64,6 +61,34 @@ function statusLabel(status: OrderStatus) {
     default:
       return "Pendente";
   }
+}
+
+function getErrorMessage(error: unknown) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "response" in error
+  ) {
+    const response = (
+      error as {
+        response?: { status?: number };
+      }
+    ).response;
+
+    if (response?.status === 401) {
+      return "Entre novamente na sua conta para consultar este pedido.";
+    }
+
+    if (response?.status === 404) {
+      return "Este pedido não existe ou não está disponível para sua conta.";
+    }
+
+    if (response?.status && response.status >= 500) {
+      return "O serviço está indisponível no momento. Tente novamente mais tarde.";
+    }
+  }
+
+  return "Não foi possível carregar o pedido. Verifique sua conexão e tente novamente.";
 }
 
 export default function OrderDetailsPage({
@@ -85,7 +110,9 @@ export default function OrderDetailsPage({
   if (orderQuery.isPending) {
     return (
       <main className="min-h-screen bg-[#110B08] px-5 py-12 text-[#E8D9CE]">
-        <p>Carregando detalhes do pedido...</p>
+        <div className="mx-auto max-w-3xl" aria-live="polite">
+          Carregando detalhes do pedido...
+        </div>
       </main>
     );
   }
@@ -102,7 +129,10 @@ export default function OrderDetailsPage({
             Voltar aos pedidos
           </Link>
 
-          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-8">
+          <section
+            className="rounded-2xl border border-white/10 bg-white/[0.03] p-8"
+            role="alert"
+          >
             <Package className="mb-4 text-[#E99A4A]" size={32} />
 
             <h1 className="text-2xl font-semibold">
@@ -110,18 +140,21 @@ export default function OrderDetailsPage({
             </h1>
 
             <p className="mt-3 text-sm text-[#B7A79B]">
-              O pedido pode não existir ou a API de pedidos ainda não
-              estar configurada. Tente novamente mais tarde.
+              {orderQuery.isError
+                ? getErrorMessage(orderQuery.error)
+                : "O pedido não foi encontrado."}
             </p>
 
-            <button
-              type="button"
-              onClick={() => void orderQuery.refetch()}
-              className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#E99A4A] px-4 py-2 font-medium text-[#110B08] hover:opacity-90"
-            >
-              <RefreshCw size={16} />
-              Tentar novamente
-            </button>
+            {orderQuery.isError && (
+              <button
+                type="button"
+                onClick={() => void orderQuery.refetch()}
+                className="mt-6 inline-flex items-center gap-2 rounded-lg bg-[#E99A4A] px-4 py-2 font-medium text-[#110B08] hover:opacity-90"
+              >
+                <RefreshCw size={16} />
+                Tentar novamente
+              </button>
+            )}
           </section>
         </div>
       </main>
@@ -142,14 +175,16 @@ export default function OrderDetailsPage({
         </Link>
 
         <header className="mb-8">
-          <p className="text-sm text-[#B7A79B]">Detalhes da compra</p>
+          <p className="text-sm text-[#B7A79B]">
+            Detalhes da compra
+          </p>
 
           <h1 className="mt-2 break-all text-3xl font-bold">
             Pedido #{order.id}
           </h1>
 
           <p className="mt-2 text-sm text-[#B7A79B]">
-            Criado em {formatDate(order.createdAt)}
+            Criado em {formatDate(order.date)}
           </p>
 
           <span className="mt-4 inline-flex rounded-full border border-[#E99A4A]/30 bg-[#E99A4A]/10 px-3 py-1 text-sm text-[#E99A4A]">
@@ -163,9 +198,9 @@ export default function OrderDetailsPage({
           </h2>
 
           <div className="divide-y divide-white/10">
-            {order.items.map((item) => (
+            {order.items.map((item, index) => (
               <div
-                key={item.nftId}
+                key={`${item.nftId}-${index}`}
                 className="flex items-center gap-4 py-4"
               >
                 <img
@@ -175,7 +210,9 @@ export default function OrderDetailsPage({
                 />
 
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate font-medium">{item.name}</h3>
+                  <h3 className="truncate font-medium">
+                    {item.name}
+                  </h3>
 
                   <p className="mt-1 text-sm text-[#B7A79B]">
                     Quantidade: {item.quantity}
@@ -233,7 +270,7 @@ export default function OrderDetailsPage({
           <dl className="space-y-3 text-sm">
             <div className="flex flex-wrap justify-between gap-2">
               <dt className="text-[#B7A79B]">Carteira</dt>
-              <dd>{order.walletType}</dd>
+              <dd>{order.wallet}</dd>
             </div>
 
             <div className="flex flex-wrap justify-between gap-2">
@@ -241,12 +278,22 @@ export default function OrderDetailsPage({
               <dd>{order.network}</dd>
             </div>
 
+            {order.walletAddress && (
+              <div className="flex flex-col gap-2">
+                <dt className="text-[#B7A79B]">
+                  Endereço da carteira
+                </dt>
+                <dd className="break-all font-mono text-xs">
+                  {order.walletAddress}
+                </dd>
+              </div>
+            )}
+
             {order.transactionReference && (
               <div className="flex flex-col gap-2">
                 <dt className="text-[#B7A79B]">
                   Referência da transação
                 </dt>
-
                 <dd className="break-all font-mono text-xs">
                   {order.transactionReference}
                 </dd>
