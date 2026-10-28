@@ -1,5 +1,5 @@
 import Image from "@/components/ui/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ChevronDown,
   SlidersHorizontal,
@@ -109,14 +109,21 @@ export default function Hero() {
   // busca
   const [search, setSearch] = useState("");
 
-    // 1. Declare o estado do preço primeiro
-    // preço  
   const [priceRange, setPriceRange] =
-  useState<[number, number]>([0.02, 12.3]);
-  
+    useState<[number, number]>([0.02, 12.3]);
+
   const [activeTab, setActiveTab] = useState<
-  "todos" | "novos" | "alta"
->("todos");
+    "todos" | "novos" | "alta"
+  >("todos");
+
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const itemsPerPage = 4;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, priceRange, activeTab]);
+
 const filteredNfts = nfts.filter((nft) => {
   const term = search.trim().toLowerCase();
   const price = Number(nft.price);
@@ -136,7 +143,16 @@ const filteredNfts = nfts.filter((nft) => {
 
   return matchesSearch && matchesPrice && matchesTab;
 });
+// Calcule os NFT
+const totalPages = Math.max(
+  1,
+  Math.ceil(filteredNfts.length / itemsPerPage)
+);
 
+const paginatedNfts = filteredNfts.slice(
+  (currentPage - 1) * itemsPerPage,
+  currentPage * itemsPerPage
+);
 
   return (
     <main className="site-shell">
@@ -244,7 +260,7 @@ const filteredNfts = nfts.filter((nft) => {
           </div>
           <div className="mobile-filter"><SlidersHorizontal size={16}/> Filtros</div>
           <div className="nft-grid" id="nfts">
-            {filteredNfts.map((nft) => (
+            {paginatedNfts.map((nft) => (
               <article className="nft-card" key={nft.id}>
                 <a className="nft-image" href="#detalhes" aria-label={`Ver ${nft.name}`}>
                   <Image src={nft.image} alt={nft.name} fill sizes="(max-width: 700px) 45vw, (max-width: 1000px) 30vw, 22vw"/>
@@ -258,56 +274,53 @@ const filteredNfts = nfts.filter((nft) => {
               </article>
             ))}
           </div>
-        <Pagination className="mx-0 mt-6 w-full justify-end">
-          <PaginationContent className="gap-1.5">
-            <PaginationItem>
-              <PaginationLink
-                href="#nfts"
-                isActive
-                aria-label="Página 1"
-                className="h-6 w-6 rounded-sm border-[#d28a4c] bg-[#d28a4c] p-0 font-mono text-[10px] text-[#1a100a] hover:bg-[#e99a4a] hover:text-[#1a100a]"
-              >
-                1
-              </PaginationLink>
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationLink
-                href="#nfts"
-                aria-label="Página 2"
-                className="h-6 w-6 rounded-sm border border-[#3c281b] bg-transparent p-0 font-mono text-[10px] text-[#f4eee8] hover:bg-[#2a1b13] hover:text-[#f4eee8]"
-              >
-                2
-              </PaginationLink>
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationLink
-                href="#nfts"
-                aria-label="Página 3"
-                className="h-6 w-6 rounded-sm border border-[#3c281b] bg-transparent p-0 font-mono text-[10px] text-[#f4eee8] hover:bg-[#2a1b13] hover:text-[#f4eee8]"
-              >
-                3
-              </PaginationLink>
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationLink
-                href="#nfts"
-                aria-label="Página 4"
-                className="h-6 w-6 rounded-sm border border-[#3c281b] bg-transparent p-0 font-mono text-[10px] text-[#f4eee8] hover:bg-[#2a1b13] hover:text-[#f4eee8]"
-              >
-                4
-              </PaginationLink>
-            </PaginationItem>
-            <PaginationItem>
-              <PaginationLink
-                href="#nfts"
-                aria-label="Próxima página"
-                className="h-6 w-6 rounded-sm border border-[#3c281b] bg-transparent p-0 font-mono text-[10px] leading-none text-[#f4eee8] hover:bg-[#2a1b13] hover:text-[#f4eee8]"
-              >
-              <ChevronRight className="h-4 w-4" />  
-              </PaginationLink>
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
+            <Pagination className="mx-0 mt-6 w-full justify-end">
+              <PaginationContent className="gap-1.5">
+                {Array.from({ length: totalPages }, (_, index) => {
+                  const page = index + 1;
+
+                  return (
+                    <PaginationItem key={page}>
+                      <PaginationLink
+                        href="#nfts"
+                        isActive={currentPage === page}
+                        aria-label={`Página ${page}`}
+                        aria-current={currentPage === page ? "page" : undefined}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setCurrentPage(page);
+                        }}
+                        className={`h-6 w-6 rounded-sm border p-0 font-mono text-[10px] ${
+                          currentPage === page
+                            ? "border-[#d28a4c] bg-[#d28a4c] text-[#1a100a] hover:bg-[#e99a4a] hover:text-[#1a100a]"
+                            : "border-[#3c281b] bg-transparent text-[#f4eee8] hover:bg-[#2a1b13] hover:text-[#f4eee8]"
+                        }`}
+                      >
+                        {page}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
+
+                <PaginationItem>
+                  <PaginationLink
+                    href="#nfts"
+                    aria-label="Próxima página"
+                    aria-disabled={currentPage >= totalPages}
+                    onClick={(event) => {
+                      event.preventDefault();
+
+                      if (currentPage < totalPages) {
+                        setCurrentPage((page) => page + 1);
+                      }
+                    }}
+                    className="h-6 w-6 rounded-sm border border-[#3c281b] bg-transparent p-0 font-mono text-[10px] text-[#f4eee8] hover:bg-[#2a1b13] hover:text-[#f4eee8]"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </PaginationLink>
+                </PaginationItem>
+              </PaginationContent>
+          </Pagination>
         </div>
       </section>
       <section
