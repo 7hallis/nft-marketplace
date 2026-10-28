@@ -10,8 +10,7 @@ import {
 import { router } from "@/lib/router";
 import { CartProvider } from "@/contexts/CartContext";
 import "@/index.css";
-
-import { testMockWebSocket } from "@/mocks/websocket-test";
+import { AuthProvider } from "./contexts/AuthContext";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,16 +31,25 @@ async function enableMocking() {
     });
   }
 }
-enableMocking().then(() => {
+
+async function bootstrap() {
+  await enableMocking();
+
   ReactDOM.createRoot(
     document.getElementById("root")!,
   ).render(
     <React.StrictMode>
-      <CartProvider>
-        <QueryClientProvider client={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider>
+        <CartProvider>
           <RouterProvider router={router} />
-        </QueryClientProvider>
-      </CartProvider>
+        </CartProvider>
+        </AuthProvider>
+      </QueryClientProvider>
     </React.StrictMode>,
   );
+}
+
+bootstrap().catch((error) => {
+  console.error("Erro ao inicializar a aplicação:", error);
 });

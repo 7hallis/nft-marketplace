@@ -1,7 +1,10 @@
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
+import axios from "axios";
+// import { useNavigate } from "@tanstack/react-router";
 import { Eye, EyeOff, LogIn, X } from "lucide-react";
 
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -13,25 +16,110 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
+type AuthTab = "login" | "signup";
+
+function getErrorMessage(error: unknown) {
+  if (axios.isAxiosError<{ message?: string }>(error)) {
+    return (
+      error.response?.data?.message ??
+      "Não foi possível conectar à API. Tente novamente."
+    );
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Ocorreu um erro inesperado. Tente novamente.";
+}
+
 export function LoginBtn() {
-  const [activeTab, setActiveTab] = useState<"login" | "signup">("login");
+  // const navigate = useNavigate();
+  const { login, register } = useAuth();
+
+  const [open, setOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<AuthTab>("login");
   const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLogin = activeTab === "login";
 
-  function handleTabChange(tab: "login" | "signup") {
+  function handleTabChange(tab: AuthTab) {
     setActiveTab(tab);
     setShowPassword(false);
+    setErrorMessage("");
+    setSuccessMessage("");
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function handleDialogChange(nextOpen: boolean) {
+    setOpen(nextOpen);
 
-    // A autenticação será integrada posteriormente.
+    if (!nextOpen) {
+      setErrorMessage("");
+      setSuccessMessage("");
+      setShowPassword(false);
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const formData = new FormData(event.currentTarget);
+
+    const email = String(formData.get("email") ?? "").trim();
+    const password = String(formData.get("password") ?? "");
+
+    if (!isLogin) {
+      const username = String(formData.get("username") ?? "").trim();
+      const confirmPassword = String(
+        formData.get("confirmPassword") ?? "",
+      );
+
+      if (password !== confirmPassword) {
+        setErrorMessage("As senhas não coincidem.");
+        return;
+      }
+
+      if (!username) {
+        setErrorMessage("Informe seu nome de usuário.");
+        return;
+      }
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      if (isLogin) {
+        await login({ email, password });
+      } else {
+        const username = String(
+          formData.get("username") ?? "",
+        ).trim();
+
+        await register({ username, email, password });
+      }
+
+      setSuccessMessage(
+        isLogin
+          ? "Login realizado com sucesso!"
+          : "Conta criada com sucesso!",
+      );
+
+      // setOpen(false);
+      // await navigate({ to: "/perfil" });
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={handleDialogChange}>
       <DialogTrigger
         render={
           <Button className="login-btn" variant="outline">
@@ -44,7 +132,7 @@ export function LoginBtn() {
       <DialogContent
         className="top-6 flex w-[min(490px,calc(100%-2rem))] max-w-none translate-y-0 flex-col gap-0 overflow-y-auto rounded-none border border-[#168bd0] bg-[#21150f] p-0 text-[#f4eee8] ring-0 sm:max-w-none"
         style={{
-          height: "min(590px, calc(100dvh - 2rem))",
+          height: "min(650px, calc(100dvh - 2rem))",
           maxHeight: "calc(100dvh - 2rem)",
         }}
         showCloseButton={false}
@@ -62,7 +150,7 @@ export function LoginBtn() {
         />
 
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex flex-1 flex-col items-center px-6 pb-10 pt-11 sm:px-10">
+          <div className="flex flex-1 flex-col items-center px-6 pb-8 pt-11 sm:px-10">
             <DialogHeader className="mb-7 items-center gap-0">
               <DialogTitle className="flex items-center gap-2 font-mono text-xl font-medium tracking-wide">
                 <button
@@ -127,7 +215,10 @@ export function LoginBtn() {
                 </>
               )}
 
-              <label className="sr-only" htmlFor="login-email">
+              <label
+                className="sr-only"
+                htmlFor={isLogin ? "login-email" : "signup-email"}
+              >
                 E-mail
               </label>
 
@@ -143,7 +234,10 @@ export function LoginBtn() {
                 type="email"
               />
 
-              <label className="sr-only" htmlFor="login-password">
+              <label
+                className="sr-only"
+                htmlFor={isLogin ? "login-password" : "signup-password"}
+              >
                 Senha
               </label>
 
@@ -158,6 +252,7 @@ export function LoginBtn() {
                   placeholder={isLogin ? "••••••••••••" : "Senha"}
                   required
                   type={showPassword ? "text" : "password"}
+                  minLength={6}
                 />
 
                 <button
@@ -169,7 +264,11 @@ export function LoginBtn() {
                   onClick={() => setShowPassword((visible) => !visible)}
                   type="button"
                 >
-                  {showPassword ? <Eye size={17} /> : <EyeOff size={17} />}
+                  {showPassword ? (
+                    <Eye size={17} />
+                  ) : (
+                    <EyeOff size={17} />
+                  )}
                 </button>
               </div>
 
@@ -190,6 +289,7 @@ export function LoginBtn() {
                     placeholder="Confirmar senha"
                     required
                     type="password"
+                    minLength={6}
                   />
                 </>
               )}
@@ -198,16 +298,45 @@ export function LoginBtn() {
                 <a
                   className="mt-3 self-end font-mono text-[13px] text-[#e99a4a] hover:text-[#f4eee8]"
                   href="#recuperar-senha"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setErrorMessage(
+                      "A recuperação de senha ainda não foi implementada.",
+                    );
+                  }}
                 >
                   Esqueceu a senha?
                 </a>
               )}
 
+              {errorMessage && (
+                <p
+                  role="alert"
+                  className="mt-3 rounded-sm border border-red-500/30 bg-red-950/30 p-2 font-mono text-xs text-red-300"
+                >
+                  {errorMessage}
+                </p>
+              )}
+
+              {successMessage && (
+                <p
+                  role="status"
+                  className="mt-3 font-mono text-xs text-green-400"
+                >
+                  {successMessage}
+                </p>
+              )}
+
               <Button
                 className="mt-5 h-11 w-full rounded-md bg-[#d28a4c] font-mono text-sm font-bold text-[#140d0a] hover:bg-[#e99a4a]"
+                disabled={isSubmitting}
                 type="submit"
               >
-                {isLogin ? "Entrar" : "Criar conta"}
+                {isSubmitting
+                  ? "Aguarde..."
+                  : isLogin
+                    ? "Entrar"
+                    : "Criar conta"}
               </Button>
             </form>
 
@@ -222,6 +351,7 @@ export function LoginBtn() {
             <div className="flex w-full max-w-[333px] flex-col gap-3">
               <Button
                 className="h-10 w-full justify-center gap-3 rounded-md border border-[#3f2319] bg-transparent font-mono text-xs text-[#c5ad96] hover:bg-[#2a1b13] hover:text-[#f4eee8]"
+                disabled
                 type="button"
                 variant="outline"
               >
@@ -236,6 +366,7 @@ export function LoginBtn() {
 
               <Button
                 className="h-10 w-full justify-center gap-3 rounded-md border border-[#3f2319] bg-transparent font-mono text-xs text-[#c5ad96] hover:bg-[#2a1b13] hover:text-[#f4eee8]"
+                disabled
                 type="button"
                 variant="outline"
               >

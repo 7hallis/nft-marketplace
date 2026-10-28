@@ -5,6 +5,9 @@ import {
   ShoppingCart,
   Menu,
   X,
+  UserRound,
+  LogOut,
+  ChevronDown,
 } from "lucide-react";
 import {
   Link,
@@ -15,6 +18,7 @@ import type { Dispatch, SetStateAction } from "react";
 
 import { LoginBtn } from "@/components/loginBtn";
 import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface HeaderProps {
   search: string;
@@ -23,14 +27,26 @@ interface HeaderProps {
 
 export default function Header({ search, setSearch }: HeaderProps) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const { pathname } = useLocation();
   const navigate = useNavigate();
-const { itemCount } = useCart();
+  const { itemCount } = useCart();
+  const { user, isAuthenticated, logout } = useAuth();
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     console.log("Pesquisar NFT:", search);
+  }
+
+  async function handleLogout() {
+    try {
+      await logout();
+      setUserMenuOpen(false);
+      await navigate({ to: "/" });
+    } catch (error) {
+      console.error("Não foi possível encerrar a sessão:", error);
+    }
   }
 
   const isActive = (path: string) => pathname === path;
@@ -86,7 +102,7 @@ const { itemCount } = useCart();
           </Link>
         </nav>
 
-        <div className="flex items-center gap-4 text-[#F4EEE8]">
+        <div className="flex items-center gap-3 text-[#F4EEE8]">
           {searchOpen && (
             <form
               onSubmit={handleSearch}
@@ -143,7 +159,52 @@ const { itemCount } = useCart();
             )}
           </button>
 
-          <LoginBtn />
+          {isAuthenticated && user ? (
+            <div className="relative">
+              <button
+                type="button"
+                aria-expanded={userMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => setUserMenuOpen((open) => !open)}
+                className="flex max-w-36 items-center gap-2 rounded-md border border-[#493024] px-2 py-2 text-xs transition-colors hover:border-[#D98845] hover:text-[#D98845]"
+              >
+                <UserRound size={16} className="shrink-0" />
+                <span className="truncate font-mono">
+                  {user.displayName || user.username}
+                </span>
+                <ChevronDown size={14} className="shrink-0" />
+              </button>
+
+              {userMenuOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 top-full z-30 mt-2 w-44 border border-[#493024] bg-[#21150f] p-1 shadow-xl"
+                >
+                  <Link
+                    to="/perfil"
+                    role="menuitem"
+                    onClick={() => setUserMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-sm px-3 py-2 font-mono text-xs hover:bg-[#D98845]/10 hover:text-[#D98845]"
+                  >
+                    <UserRound size={15} />
+                    Meu perfil
+                  </Link>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left font-mono text-xs text-[#E8D9CE] hover:bg-[#D98845]/10 hover:text-[#D98845]"
+                  >
+                    <LogOut size={15} />
+                    Sair
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <LoginBtn />
+          )}
 
           <button
             type="button"
