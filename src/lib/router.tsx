@@ -1,84 +1,94 @@
 
 import {
-    createRootRoute,
-    createRoute,
-    createRouter,
-    Outlet,
-  } from "@tanstack/react-router";
-  
-  import HomePage from "@/pages/HomePage";
-  
-  import CartPage from "@/pages/CartPage";
-  import CheckoutPage from "@/pages/CheckoutPage";
-  import Mercado from "@/pages/Mercado";
-  import Carrinho from "@/pages/CartPage";
-  import Perfil from "@/pages/PerfilPage";
-  import Carteira from "@/pages/CarteiraPage";
+  createRootRoute,
+  createRoute,
+  createRouter,
+  Outlet,
+} from "@tanstack/react-router";
+
+import HomePage from "@/pages/HomePage";
+import CartPage from "@/pages/CartPage";
+import CheckoutPage from "@/pages/CheckoutPage";
+import Mercado from "@/pages/Mercado";
+import Carrinho from "@/pages/CartPage";
+import Perfil from "@/pages/PerfilPage";
+import Carteira from "@/pages/CarteiraPage";
+import NFTDetailsPage from "@/pages/NFTDetailsPage";
 
 
-  
-  const rootRoute = createRootRoute({
-    component: () => <Outlet />,
-  });
-  
-  const homeRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/",
-    component: HomePage,
-  });
-  
-  const cartRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/cart",
-    component: CartPage,
-  });
-  
-  const checkoutRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/checkout",
-    component: CheckoutPage,
-  });
-  
-  const MercadoRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/mercado",
-    component: Mercado,
-  });
-  
-  const CarrinhoRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/carrinho",
-    component: Carrinho,
-  });
+const rootRoute = createRootRoute({
+  component: () => <Outlet />,
+});
 
-  const PerfilRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/perfil",
-    component: Perfil,
-  });
-  
-  const CarteiraRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: "/carteira",
-    component: Carteira,
-  });
-  
-  const routeTree = rootRoute.addChildren([
-    homeRoute,
-    cartRoute,
-    checkoutRoute,
-    MercadoRoute,
-    CarrinhoRoute,
-    PerfilRoute,
-    CarteiraRoute,
+const homeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  component: HomePage,
+});
 
-  ]);
-  
-  export const router = createRouter({ routeTree });
-  
-  declare module "@tanstack/react-router" {
-    interface Register {
-      router: typeof router;
-    }
+const cartRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/cart",
+  component: CartPage,
+});
+
+const checkoutRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/checkout",
+  component: CheckoutPage,
+});
+
+const mercadoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/mercado",
+  component: Mercado,
+});
+
+const carrinhoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/carrinho",
+  component: Carrinho,
+});
+
+const perfilRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/perfil",
+  component: Perfil,
+});
+
+const carteiraRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/carteira",
+  component: Carteira,
+});
+
+function NFTDetailsRouteComponent() {
+  const { nftId } = NFTDetailsRoute.useParams();
+
+  return <NFTDetailsPage {...({ nftId } as any)} />;
+}
+
+const NFTDetailsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "nft/$nftId",
+  component: NFTDetailsRouteComponent,
+});
+
+const routeTree = rootRoute.addChildren([
+  homeRoute,
+  cartRoute,
+  checkoutRoute,
+  mercadoRoute,
+  carrinhoRoute,
+  perfilRoute,
+  carteiraRoute,
+  NFTDetailsRoute,
+]);
+
+export const router = createRouter({ routeTree });
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
   }
-  
+}

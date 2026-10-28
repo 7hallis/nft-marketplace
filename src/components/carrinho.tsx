@@ -1,220 +1,373 @@
-import Image from "./ui/image";
-import nft1 from "../assets/nft1.png";
-import nft2 from "../assets/nft2.png";
-import nft3 from "../assets/nft3.png";
-import { Trash2 } from "lucide-react";
 
+import Image from "./ui/image";
+import { Trash2 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { useCart } from "@/contexts/CartContext";
+import { useMemo, useState, type FormEvent } from "react";
+
+const NETWORK_FEE = 0.016;
+
+function formatEth(value: number) {
+  return `${value.toFixed(3)} ETH`;
+}
 
 export default function CarrinhoPage() {
+const navigate = useNavigate();
 
-    const navigate = useNavigate()
-    function handleFinalizar() {
-        navigate ({to: "/checkout"})
-    }
-  // Mantém os itens e os valores alinhados às três linhas de produtos da imagem de referência.
-  const items = [
-    {
-      image: nft1,
-      name: "Emerald Ape #042",
-      id: "#0042",
-      price: "1.19 ETH",
-      quantity: 2,
-      total: "2.38 ETH",
-      alt: "Macaco usando óculos e jaqueta verde",
-    },
-    {
-      image: nft2,
-      name: "Violet Nomad #314",
-      id: "#0009",
-      price: "1.39 ETH",
-      quantity: 6,
-      total: "8.34 ETH",
-      alt: "Macaco usando chapéu verde e moletom roxo",
-    },
-    {
-      image: nft3,
-      name: "Ivory Baron #088",
-      id: "#0052",
-      price: "1.79 ETH",
-      quantity: 9,
-      total: "16.11 ETH",
-      alt: "Macaco de pelo escuro usando roupa clara",
-    },
-  ];
+const {
+  items,
+  removeFromCart,
+  updateQuantity,
+} = useCart();
+
+const [promoCode, setPromoCode] = useState("");
+const [promoMessage, setPromoMessage] = useState("");
+const [discount, setDiscount] = useState(0);
+
+const subtotal = useMemo(
+  () =>
+    items.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0
+    ),
+  [items]
+);
+
+const total = Math.max(0, subtotal - discount) +
+  (items.length > 0 ? NETWORK_FEE : 0);
+
+function handleQuantity(id: string, change: number) {
+  const item = items.find((product) => product.id === id);
+
+  if (!item) return;
+
+  updateQuantity(id, item.quantity + change);
+}
+
+function handleRemove(id: string) {
+  removeFromCart(id);
+  setDiscount(0);
+  setPromoMessage("");
+}
+
+function handleApplyPromo(event: FormEvent<HTMLFormElement>) {
+  event.preventDefault();
+
+  if (items.length === 0) {
+    setPromoMessage("Adicione um NFT antes de aplicar um cupom.");
+    return;
+  }
+
+  if (promoCode.trim().toUpperCase() === "KURIO10") {
+    setDiscount(subtotal * 0.1);
+    setPromoMessage("Cupom KURIO10 aplicado: 10% de desconto.");
+  } else {
+    setDiscount(0);
+    setPromoMessage("Código inválido. Tente KURIO10.");
+  }
+}
+
+function handleFinalizar() {
+  if (items.length === 0) return;
+
+  navigate({ to: "/checkout" });
+}
 
   return (
-    // Substitui a tabela sem estrutura e ocupa a tela com o fundo escuro da referência.
-    <main className=" bg-[#110B08] px-4 py-4 font-mono text-[#E8D9CE] sm:px-6">
-      {/* Usa toda a largura disponível para que a tabela e o resumo ocupem o espaço da tela. */}
-      <div className="w-full">
+    <section className="min-w-0 bg-[#110B08] py-4 font-mono text-[#E8D9CE] sm:py-6">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(260px,1fr)] lg:gap-8">
+        {/* Lista de produtos */}
+        <section aria-label="NFTs no carrinho" className="min-w-0">
+          <h2 className="mb-4 text-sm font-bold text-white">
+            Meu carrinho ({items.reduce((sum, item) => sum + item.quantity, 0)})
+          </h2>
 
-        {/* Divide o espaço disponível em duas colunas: tabela maior à esquerda e resumo à direita. */}
-        <div className="grid grid-cols-2 items-start gap-8 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] md:gap-8 lg:gap-12">
-          {/* Usa uma tabela semântica para alinhar cabeçalhos e células em colunas reais; em telas pequenas ela pode rolar horizontalmente. */}
-          <section aria-label="NFTs no carrinho" className="min-w-0">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-136 table-fixed border-separate border-spacing-y-2 text-left md:min-w-0">
-                {/* Define larguras proporcionais para manter nome, preço, quantidade, total e ação alinhados. */}
-                <colgroup>
-                  <col className="w-[38%]" />
-                  <col className="w-[16%]" />
-                  <col className="w-[17%]" />
-                  <col className="w-[17%]" />
-                  <col className="w-[12%]" />
-                </colgroup>
-                <thead>
-                  <tr className="text-[10px] text-[#E8D9CE] sm:text-xs">
-                    <th scope="col" className="border-b border-[#CFB28C]/25 pb-2 font-semibold">
-                      NFTs
-                    </th>
-                    <th scope="col" className="border-b border-[#CFB28C]/25 pb-2 text-center font-normal">
-                      Preço
-                    </th>
-                    <th scope="col" className="border-b border-[#CFB28C]/25 pb-2 text-center font-normal">
-                      Edições
-                    </th>
-                    <th scope="col" className="border-b border-[#CFB28C]/25 pb-2 text-center font-normal">
-                      Total
-                    </th>
-                    <th scope="col" className="border-b border-[#CFB28C]/25 pb-2" aria-label="Ações" />
-                  </tr>
-                </thead>
-                {/* Mantém cada item em uma linha contínua e destaca as linhas em marrom escuro como na referência. */}
-                <tbody>
-                  {items.map((item) => (
-                    <tr key={item.id} className="h-12.5 text-[9px] sm:text-[10px]">
-                      {/* Agrupa imagem, nome e identificador na primeira célula sem quebrar a linha do produto. */}
-                      <td className="rounded-l-sm bg-[#21150F] px-1 py-1 sm:px-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <Image
-                            src={item.image}
-                            alt={item.alt}
-                            className="h-10 w-10 shrink-0 rounded-sm object-cover sm:h-12 sm:w-12"
-                          />
+          {items.length > 0 ? (
+            <>
+              {/* Tabela para telas médias e grandes */}
+              <div className="hidden overflow-x-auto sm:block">
+                <table className="w-full min-w-[480px] table-fixed border-separate border-spacing-y-2 text-left">
+                  <colgroup>
+                    <col className="w-[38%]" />
+                    <col className="w-[16%]" />
+                    <col className="w-[17%]" />
+                    <col className="w-[19%]" />
+                    <col className="w-[10%]" />
+                  </colgroup>
+
+                  <thead>
+                    <tr className="text-[10px] text-[#E8D9CE] md:text-xs">
+                      <th className="border-b border-[#CFB28C]/25 pb-2 font-semibold">
+                        NFTs
+                      </th>
+                      <th className="border-b border-[#CFB28C]/25 pb-2 text-center font-normal">
+                        Preço
+                      </th>
+                      <th className="border-b border-[#CFB28C]/25 pb-2 text-center font-normal">
+                        Edições
+                      </th>
+                      <th className="border-b border-[#CFB28C]/25 pb-2 text-center font-normal">
+                        Total
+                      </th>
+                      <th
+                        className="border-b border-[#CFB28C]/25 pb-2"
+                        aria-label="Ações"
+                      />
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {items.map((item) => (
+                      <tr key={item.id} className="text-[10px]">
+                        <td className="rounded-l-sm bg-[#21150F] px-2 py-2">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <Image
+                              src={item.image}
+                              alt={item.alt}
+                              className="h-10 w-10 shrink-0 rounded-sm object-cover md:h-12 md:w-12"
+                            />
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-[#E8D9CE]">
+                                {item.name}
+                              </p>
+                              <p className="text-[9px] text-[#B39463]">
+                                Token: {item.id}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="bg-[#21150F] px-1 text-center text-[#B39463]">
+                          {formatEth(item.price)}
+                        </td>
+
+                        <td className="bg-[#21150F] px-1">
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              aria-label={`Diminuir quantidade de ${item.name}`}
+                              onClick={() => handleQuantity(item.id, -1)}
+                              disabled={item.quantity <= 1}
+                              className="flex h-6 w-6 items-center justify-center rounded-full bg-[#D98845] text-[#110B08] hover:bg-[#E8A15F] disabled:opacity-40"
+                            >
+                              -
+                            </button>
+
+                            <span className="min-w-4 text-center">
+                              {item.quantity}
+                            </span>
+
+                            <button
+                              type="button"
+                              aria-label={`Aumentar quantidade de ${item.name}`}
+                              onClick={() => handleQuantity(item.id, 1)}
+                              disabled={item.quantity >= 50}
+                              className="flex h-6 w-6 items-center justify-center rounded-full bg-[#D98845] text-[#110B08] hover:bg-[#E8A15F] disabled:opacity-40"
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+
+                        <td className="bg-[#21150F] px-1 text-center font-semibold text-[#D98845]">
+                          {formatEth(item.price * item.quantity)}
+                        </td>
+
+                        <td className="rounded-r-sm bg-[#21150F] px-1 text-center">
+                          <button
+                            type="button"
+                            aria-label={`Remover ${item.name} do carrinho`}
+                            onClick={() => handleRemove(item.id)}
+                            className="inline-flex text-[#B39463] transition-colors hover:text-[#D98845]"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Cards para celulares */}
+              <div className="space-y-3 sm:hidden">
+                {items.map((item) => (
+                  <article
+                    key={item.id}
+                    className="rounded-md border border-[#CFB28C]/15 bg-[#21150F] p-3"
+                  >
+                    <div className="flex gap-3">
+                      <Image
+                        src={item.image}
+                        alt={item.alt}
+                        className="h-20 w-20 shrink-0 rounded-md object-cover"
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="truncate font-semibold text-[#E8D9CE]">
+                            <h3 className="break-words text-xs font-semibold text-white">
                               {item.name}
-                            </p>
-                            <p className="truncate text-[8px] text-[#B39463] sm:text-[9px]">
-                              ID do token: {item.id}
+                            </h3>
+                            <p className="mt-1 text-[9px] text-[#B39463]">
+                              Token: {item.id}
                             </p>
                           </div>
-                        </div>
-                      </td>
-                      {/* Centraliza preço e total dentro das colunas reservadas para eles. */}
-                      <td className="bg-[#21150F] px-1 text-center text-[#B39463]">
-                        {item.price}
-                      </td>
-                      {/* Alinha os controles de quantidade horizontalmente e preserva o tamanho compacto da referência. */}
-                      <td className="bg-[#21150F] px-1">
-                        <div className="flex items-center justify-center gap-1.5">
+
                           <button
                             type="button"
-                            aria-label={`Diminuir quantidade de ${item.name}`}
-                            className="flex h-5 w-3 items-center justify-center rounded-full bg-[#D98845] font-bold text-[#110B08] transition hover:bg-[#E8A15F]"
+                            aria-label={`Remover ${item.name} do carrinho`}
+                            onClick={() => handleRemove(item.id)}
+                            className="shrink-0 p-1 text-[#B39463] hover:text-[#D98845]"
                           >
-                            -
-                          </button>
-                          <span>{item.quantity}</span>
-                          <button
-                            type="button"
-                            aria-label={`Aumentar quantidade de ${item.name}`}
-                            className="flex h-5 w-3 items-center justify-center rounded-full bg-[#D98845] font-bold text-[#110B08] transition hover:bg-[#E8A15F]"
-                          >
-                            +
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
-                      </td>
-                      <td className="bg-[#21150F] px-1 text-center font-semibold text-[#D98845]">
-                        {item.total}
-                      </td>
-                      {/* Coloca o ícone de remover no final da linha e arredonda a borda externa do card. */}
-                      <td className="rounded-r-sm bg-[#21150F] px-1 text-center">
-                        <button
-                          type="button"
-                          aria-label={`Remover ${item.name} do carrinho`}
-                          className="inline-flex text-[#B39463] transition-colors hover:text-[#D98845]"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
 
-          {/* Reproduz o painel lateral de resumo com campos, taxas e chamada principal de checkout. */}
-          <aside className="w-full md:max-w-sm">
-            <h2 className="border-b border-[#CFB28C]/25 pb-2 text-xs font-semibold text-[#E8D9CE]">
-              Resumo da carteira
-            </h2>
+                        <p className="mt-2 text-[10px] text-[#B39463]">
+                          {formatEth(item.price)} por edição
+                        </p>
 
-            {/* Coloca o campo promocional e botão lado a lado, com responsividade para telas estreitas. */}
-            <form className="mt-3">
-              <label
-                htmlFor="promo-code"
-                className="mb-1 block text-[9px] text-[#E8D9CE]"
-              >
-                Código promocional
-              </label>
-              <div className="flex">
-                <input
-                  id="promo-code"
-                  type="text"
-                  placeholder="Digite o código promocional..."
-                  className="min-w-0 flex-1 border border-[#D98845]/60 bg-transparent px-2 py-1 text-[9px] text-[#E8D9CE] placeholder:text-[#B39463]/70 focus:outline-2 focus:outline-[#D98845]"
-                />
-                <button
-                  type="button"
-                  className="bg-[#D98845] px-3 text-[9px] font-bold text-[#110B08] transition-colors hover:bg-[#E8A15F]"
-                >
-                  Aplicar
-                </button>
-              </div>
-            </form>
+                        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              aria-label={`Diminuir quantidade de ${item.name}`}
+                              disabled={item.quantity <= 1}
+                              onClick={() => handleQuantity(item.id, -1)}
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-[#D98845] text-[#110B08] disabled:opacity-40"
+                            >
+                              -
+                            </button>
 
-            {/* Alinha descrições e valores para facilitar a leitura do resumo da compra. */}
-            <dl className="mt-4 space-y-2 text-[9px]">
-              <div className="flex justify-between gap-3">
-                <dt>Subtotal</dt>
-                <dd>26.83 ETH</dd>
+                            <span className="text-xs">{item.quantity}</span>
+
+                            <button
+                              type="button"
+                              aria-label={`Aumentar quantidade de ${item.name}`}
+                              disabled={item.quantity >= 50}
+                              onClick={() => handleQuantity(item.id, 1)}
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-[#D98845] text-[#110B08] disabled:opacity-40"
+                            >
+                              +
+                            </button>
+                          </div>
+
+                          <span className="text-xs font-bold text-[#D98845]">
+                            {formatEth(item.price * item.quantity)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                ))}
               </div>
-              <div className="flex justify-between gap-3">
-                <dt>Desconto do lançamento</dt>
-                <dd>(-) 00.00</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt>Taxa de rede</dt>
-                <dd>0.016 ETH</dd>
-              </div>
-              <p className="text-right text-[8px] text-[#D98845]">
-                Taxa estimada
+            </>
+          ) : (
+            <div className="rounded-md border border-[#CFB28C]/20 bg-[#21150F] px-4 py-10 text-center">
+              <p className="text-sm font-bold text-white">
+                Seu carrinho está vazio
               </p>
-            </dl>
-
-            {/* Dá ênfase ao total e ao botão de finalizar, mantendo o link secundário em laranja. */}
-            <div className="mt-4 flex items-center justify-between text-[10px] font-bold">
-              <span>Total</span>
-              <span className="text-[#D98845]">26.846 ETH</span>
+              <p className="mt-2 text-xs text-[#B39463]">
+                Explore o mercado e encontre seu próximo NFT.
+              </p>
+              <a
+                href="/mercado"
+                className="mt-4 inline-block text-xs font-bold text-[#D98845] hover:text-[#E8A15F]"
+              >
+                Explorar mercado
+              </a>
             </div>
-            <button
-              type="button"
-              className="mt-3 w-full rounded-sm bg-[#D98845] px-3 py-2 text-[9px] font-bold text-[#110B08] transition-colors hover:bg-[#E8A15F]" onClick={handleFinalizar}
+          )}
+        </section>
+
+        {/* Resumo do pedido */}
+        <aside className="w-full rounded-md border border-[#CFB28C]/15 bg-[#1A100C] p-4 lg:sticky lg:top-6 lg:p-5">
+          <h2 className="border-b border-[#CFB28C]/25 pb-3 text-sm font-semibold text-white">
+            Resumo da carteira
+          </h2>
+
+          <form onSubmit={handleApplyPromo} className="mt-4">
+            <label
+              htmlFor="promo-code"
+              className="mb-2 block text-[10px] text-[#E8D9CE]"
             >
-              Conectar e finalizar
-            </button>
-            <a
-              href="/mercado"
-              className="mt-2 block text-center text-[9px] text-[#D98845] transition-colors hover:text-[#E8A15F]"
-            >
-              Continuar explorando
-            </a>
-          </aside>
-        </div>
+              Código promocional
+            </label>
+
+            <div className="flex min-w-0">
+              <input
+                id="promo-code"
+                type="text"
+                value={promoCode}
+                onChange={(event) => setPromoCode(event.target.value)}
+                placeholder="Digite seu cupom..."
+                className="min-w-0 flex-1 border border-[#D98845]/60 bg-transparent px-2 py-2 text-xs text-[#E8D9CE] placeholder:text-[#B39463]/70 focus:outline-2 focus:outline-[#D98845]"
+              />
+
+              <button
+                type="submit"
+                className="shrink-0 bg-[#D98845] px-3 text-xs font-bold text-[#110B08] transition-colors hover:bg-[#E8A15F]"
+              >
+                Aplicar
+              </button>
+            </div>
+
+            {promoMessage && (
+              <p
+                aria-live="polite"
+                className="mt-2 text-[10px] text-[#D98845]"
+              >
+                {promoMessage}
+              </p>
+            )}
+          </form>
+
+          <dl className="mt-5 space-y-3 text-xs">
+            <div className="flex justify-between gap-3">
+              <dt className="text-[#B39463]">Subtotal</dt>
+              <dd className="text-right">{formatEth(subtotal)}</dd>
+            </div>
+
+            <div className="flex justify-between gap-3">
+              <dt className="text-[#B39463]">Desconto</dt>
+              <dd className="text-right text-[#D98845]">
+                - {formatEth(discount)}
+              </dd>
+            </div>
+
+            <div className="flex justify-between gap-3">
+              <dt className="text-[#B39463]">Taxa de rede estimada</dt>
+              <dd className="text-right">
+                {items.length > 0 ? formatEth(NETWORK_FEE) : formatEth(0)}
+              </dd>
+            </div>
+          </dl>
+
+          <div className="mt-5 flex items-center justify-between gap-3 border-t border-[#CFB28C]/25 pt-4 text-sm font-bold">
+            <span>Total</span>
+            <span className="text-right text-[#D98845]">
+              {formatEth(total)}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            disabled={items.length === 0}
+            onClick={handleFinalizar}
+            className="mt-5 w-full rounded-sm bg-[#D98845] px-3 py-3 text-xs font-bold text-[#110B08] transition-colors hover:bg-[#E8A15F] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Conectar e finalizar
+          </button>
+
+          <a
+            href="/mercado"
+            className="mt-3 block text-center text-xs text-[#D98845] transition-colors hover:text-[#E8A15F]"
+          >
+            Continuar explorando
+          </a>
+        </aside>
       </div>
-    </main>
+    </section>
   );
 }

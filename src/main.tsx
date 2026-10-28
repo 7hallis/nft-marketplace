@@ -8,10 +8,10 @@ import {
 } from "@tanstack/react-query";
 
 import { router } from "@/lib/router";
+import { CartProvider } from "@/contexts/CartContext";
 import "@/index.css";
 
-import { testMockWebSocket } from "@/mocks/websocket-test"
-
+import { testMockWebSocket } from "@/mocks/websocket-test";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,19 +26,22 @@ const queryClient = new QueryClient({
 async function enableMocking() {
   if (import.meta.env.DEV) {
     const { worker } = await import("@/mocks/browser");
-    await worker.start();
+
+    await worker.start({
+      onUnhandledRequest: "bypass",
+    });
   }
 }
-
 enableMocking().then(() => {
-
   ReactDOM.createRoot(
     document.getElementById("root")!,
   ).render(
     <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
+      <CartProvider>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </CartProvider>
     </React.StrictMode>,
   );
 });

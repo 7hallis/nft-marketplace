@@ -28,15 +28,16 @@ import {
 import { Footer } from "@/components/footer";
 import Header from "@/components/header";
 import { MobileNav } from "@/components/MobileNav";
+import { useNavigate } from "@tanstack/react-router";
 
 // Dados dos NFTs exibidos no marketplace.
 const nfts = [
-  { name: "Chimp Ape", id: "#042", price: "1.69", image: nft1, tag: "POPULAR" },
-  { name: "Sage Nomad", id: "#009", price: "1.69", image: nft2, tag: "NOVO" },
-  { name: "Neon Vessel", id: "#552", price: "1.99", image: nft3, tag: "" },
-  { name: "Forest Spirit", id: "#127", price: "2.29", image: nft4, tag: "" },
-  { name: "Golden Hour", id: "#218", price: "0.89", image: nft1, tag: "" },
-  { name: "Dream State", id: "#077", price: "3.10", image: nft2, tag: "" },
+  { name: "Chimp Ape", id: "0042", price: "1.69", image: nft1, tag: "POPULAR" },
+  { name: "Sage Nomad", id: "0009", price: "1.69", image: nft2, tag: "NOVO" },
+  { name: "Neon Vessel", id: "0052", price: "1.99", image: nft3, tag: "" },
+  { name: "Golden Beat #207", id: "0207", price: "2.29", image: nft4, tag: "" },
+  { name: "Golden Hour", id: "0218", price: "0.89", image: nft1, tag: "" },
+  { name: "Dream State", id: "0077", price: "3.10", image: nft2, tag: "" },
 ];
 
 // Artigos exibidos na seção Diário da Cunhagem.
@@ -72,6 +73,8 @@ const stories = [
 ];
 
 export default function Hero() {
+  
+const navigate = useNavigate();
   // Estados da busca, do preço, das abas e da paginação.
   const [search, setSearch] = useState("");
   const [priceRange, setPriceRange] = useState<[number, number]>([0.02, 12.3]);
@@ -431,66 +434,78 @@ export default function Hero() {
             id="nfts"
             className="grid min-h-[360px] min-w-0 grid-cols-2 content-start gap-x-3 gap-y-5 pt-4 sm:min-h-[400px] sm:gap-x-5 sm:gap-y-6 lg:grid-cols-3 xl:grid-cols-4"
           >
-            {paginatedNfts.map((nft) => (
+          
+          {paginatedNfts.map((nft) => {
+            const nftId = nft.id.replace("#", "");
+
+            return (
               <article
                 className="group min-w-0 overflow-hidden"
                 key={nft.id}
               >
-                <a
-                  className="relative block aspect-square overflow-hidden rounded-xl bg-[#21150f]"
-                  href="#detalhes"
-                  aria-label={`Ver ${nft.name}`}
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate({
+                      to: "/nft/$nftId",
+                      params: { nftId },
+                    })
+                  }
+                  aria-label={`Ver detalhes de ${nft.name}`}
+                  className="block w-full cursor-pointer text-left"
                 >
-                  <Image
-                    src={nft.image}
-                    alt={nft.name}
-                    fill
-                    sizes="(max-width: 639px) 45vw, (max-width: 1023px) 30vw, 22vw"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
+                  <div className="relative block aspect-square overflow-hidden rounded-xl bg-[#21150f]">
+                    <Image
+                      src={nft.image}
+                      alt={nft.name}
+                      fill
+                      sizes="(max-width: 639px) 45vw, (max-width: 1023px) 30vw, 22vw"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
 
-                  {nft.tag && (
-                    <span
-                      className={`absolute left-0 top-2 rounded-r px-2 py-1 font-mono text-[8px] font-bold sm:text-[9px] ${
-                        nft.tag === "POPULAR"
-                          ? "bg-[#d28a4c] text-[#1a100a]"
-                          : "bg-[#e8d9ce] text-[#1a100a]"
-                      }`}
-                    >
-                      {nft.tag}
+                    {nft.tag && (
+                      <span
+                        className={`absolute left-0 top-2 rounded-r px-2 py-1 font-mono text-[8px] font-bold sm:text-[9px] ${
+                          nft.tag === "POPULAR"
+                            ? "bg-[#d28a4c] text-[#1a100a]"
+                            : "bg-[#e8d9ce] text-[#1a100a]"
+                        }`}
+                      >
+                        {nft.tag}
+                      </span>
+                    )}
+
+                    <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#21150f]/90 text-[#e99a4a]">
+                      <ArrowUpRight size={15} />
                     </span>
-                  )}
+                  </div>
 
-                  <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#21150f]/90 text-[#e99a4a] opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-                    <ArrowUpRight size={15} />
-                  </span>
-                </a>
-
-                {/* Nome, identificação e preço do NFT. */}
-                <div className="mt-2 flex min-w-0 flex-col gap-1 px-1">
-                  <div className="min-w-0">
+                  <div className="mt-2 flex min-w-0 flex-col gap-1 px-1">
                     <h2 className="m-0 truncate font-mono text-[10px] font-bold text-[#f4eee8] sm:text-sm">
                       {nft.name}
                     </h2>
+
                     <p className="mb-0 mt-0.5 font-mono text-[9px] text-[#aa9787] sm:text-xs">
                       {nft.name} {nft.id}
                     </p>
-                  </div>
 
-                  <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-1 gap-y-0.5">
-                    <span className="font-mono text-[10px] font-bold text-[#e99a4a] sm:text-sm">
-                      {nft.price} ETH
-                    </span>
-                    <small className="font-mono text-[8px] text-[#aa9787] sm:text-[10px]">
-                      ≈ $
-                      {(Number(nft.price) * 3200).toLocaleString("en-US", {
-                        maximumFractionDigits: 0,
-                      })}
-                    </small>
+                    <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-1 gap-y-0.5">
+                      <span className="font-mono text-[10px] font-bold text-[#e99a4a] sm:text-sm">
+                        {nft.price} ETH
+                      </span>
+
+                      <small className="font-mono text-[8px] text-[#aa9787] sm:text-[10px]">
+                        ≈ $
+                        {(Number(nft.price) * 3200).toLocaleString("en-US", {
+                          maximumFractionDigits: 0,
+                        })}
+                      </small>
+                    </div>
                   </div>
-                </div>
+                </button>
               </article>
-            ))}
+            );
+          })}
 
             {/* Mensagem apresentada quando nenhum NFT corresponde aos filtros. */}
             {paginatedNfts.length === 0 && (
