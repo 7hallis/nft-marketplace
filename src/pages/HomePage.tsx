@@ -197,54 +197,58 @@ export default function Hero() {
       <MobileNav />
 
       {/* Banner principal. */}
+           {/* Banner principal: mantém o design original no desktop e adapta no mobile. */}
       <section
         id="inicio"
-        className="relative mt-3 grid grid-cols-[minmax(0,1fr)_minmax(90px,0.7fr)] gap-2 overflow-hidden rounded-2xl bg-[#21150f] p-3 sm:mt-5 sm:grid-cols-2 sm:gap-5 sm:p-6 lg:p-8"
+        className="relative mt-3 grid grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] items-center gap-3 bg-transparent sm:mt-5 sm:grid-cols-2 sm:gap-6 lg:mt-0 lg:grid-cols-[minmax(0,1fr)_418px] lg:gap-10"
       >
-        <div className="relative z-10 flex min-w-0 flex-col items-start justify-center gap-2 sm:gap-3">
-          <p className="m-0 font-mono text-[8px] text-[#c5ad96] sm:text-xs">
+        {/* Texto do banner */}
+        <div className="relative z-10 flex min-w-0 flex-col items-start justify-center gap-2 py-3 sm:gap-3 lg:py-8">
+          <p className="m-0 font-mono text-[8px] tracking-wide text-[#f4eee8] sm:text-xs">
             Bem-vindo à Kurio
           </p>
 
-          <h1 className="m-0 font-mono text-sm font-bold leading-tight sm:text-2xl lg:text-4xl">
-            SEJA DONO DA
-            <br />
-            CULTURA DIGITAL
+          <h1 className="m-0 max-w-full font-mono text-sm font-bold leading-tight tracking-tight text-[#f4eee8] sm:text-2xl lg:text-[40px] lg:leading-[1.6]">
+            <span className="lg:whitespace-nowrap">SEJA DONO DO FUTURO</span>
+            <br className="hidden lg:block" />
+            <span className="lg:whitespace-nowrap">DA ARTE DIGITAL</span>
           </h1>
 
-          <p className="m-0 max-w-md font-mono text-[8px] leading-relaxed text-[#c5ad96] sm:text-xs">
-            Descubra NFTs selecionados de criadores do mundo todo. Colecione
-            arte digital rara e apoie artistas.
+          <p className="m-0 max-w-xl font-mono text-[8px] leading-relaxed text-[#c5ad96] sm:text-xs lg:text-[13px] lg:leading-[1.75]">
+            Descubra NFTs selecionados de criadores emergentes e consagrados.
+            Colecione arte digital rara, apoie artistas e tenha uma parte da
+            cultura da internet.
           </p>
 
           <a
             href="#colecoes"
-            className="inline-flex items-center gap-1 font-mono text-[8px] font-bold text-[#e99a4a] hover:text-[#f4eee8] sm:text-xs"
+            className="mt-1 inline-flex min-h-8 items-center justify-center gap-2 rounded-md bg-[#d98845] px-3 py-2 font-mono text-[9px] font-bold text-[#130d0a] transition-colors hover:bg-[#e99a4a] sm:px-5 sm:text-xs lg:mt-3 lg:min-h-[38px] lg:px-7"
           >
-            EXPLORAR <ArrowUpRight size={13} />
+            EXPLORAR
+            <ArrowUpRight size={14} />
           </a>
-
-          <div className="mt-1 flex gap-1.5" aria-hidden="true">
-            <span className="h-1 w-4 rounded-full bg-[#e99a4a]" />
-            <span className="h-1 w-1 rounded-full bg-[#80532f]" />
-            <span className="h-1 w-1 rounded-full bg-[#80532f]" />
-          </div>
         </div>
 
-        <div className="relative min-h-[112px] overflow-hidden rounded-xl bg-[#2a1b13] sm:min-h-[220px]">
+        {/* Imagem do banner */}
+        <div className="relative aspect-square w-full min-w-0 overflow-hidden rounded-xl bg-[#d9d7b2] sm:rounded-2xl lg:ml-auto lg:max-w-[418px]">
           <Image
             src={nft1}
-            alt="Retrato de um macaco, arte de colecionável digital"
+            alt="Retrato de um macaco usando óculos e jaqueta verde"
             fill
             priority
-            sizes="(max-width: 639px) 42vw, 45vw"
+            sizes="(max-width: 639px) 42vw, (max-width: 1023px) 45vw, 418px"
             className="object-cover"
           />
+        </div>
 
-          <div className="absolute bottom-1 left-1 right-1 hidden items-center gap-1 rounded bg-[#130d0a]/80 px-2 py-1 font-mono text-[8px] text-[#e99a4a] sm:flex">
-            <Sparkles size={12} />
-            COLEÇÃO EM DESTAQUE
-          </div>
+        {/* Indicadores do banner */}
+        <div
+          className="absolute bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-2 sm:bottom-2 lg:bottom-10"
+          aria-label="Indicadores do banner"
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-[#d98845]" />
+          <span className="h-1.5 w-1.5 rounded-full bg-[#d98845]" />
+          <span className="h-1.5 w-1.5 rounded-full bg-[#d98845]" />
         </div>
       </section>
 

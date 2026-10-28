@@ -10,6 +10,8 @@ import {
 import { LoginBtn } from "@/components/loginBtn";
 import { Link } from "@tanstack/react-router";
 import { type Dispatch, type SetStateAction } from "react";
+import { useLocation } from "@tanstack/react-router";
+
 
 interface HeaderProps {
   search: string;
@@ -29,46 +31,60 @@ export default function Header({ search, setSearch }: HeaderProps) {
     console.log("Pesquisar NFT:", search);
   }
 
+  const { pathname } = useLocation();
+
+  const isActive = (path: string) => pathname === path
+
+  const navLinkClass = (path:string) => 
+    `relative py-2 transition-colors ${
+      isActive(path)
+       ? "font-bold text-[#D98845] after:absolute after:inset-x-0 after:-bottom-2 after:h-0.5 after:bg-[#D98845]"
+      : "text-[#E8D9CE] hover:text-[#D98845]"
+    }`
+
   return (
     <header className="w-full border-b border-[#2a1a13] bg-[#110B08]">
-      <div className="relative mx-auto flex h-16 max-w-210 items-center justify-between px-4">
-        <a
-          href="#"
-          className="text-[10px] font-bold tracking-[0.2em] text-[#E8D9CE]"
-        >
-          KURIO
-        </a>
-
-        <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 font-mono text-xs md:flex">
-          <a
-            href="#inicio"
-            className="py-2 text-[#E8D9CE] transition-colors hover:text-[#D98845]"
-          >
-            Início
-          </a>
-
+      <div className="relative mx-auto flex h-16 max-w-210 items-center justify-between px-4">        
           <Link
-            to="/mercado"
-            aria-current="page"
-            className="relative py-2 font-bold text-[#D98845] after:absolute after:inset-x-0 after:-bottom-2 after:h-0.5 after:bg-[#D98845]"
+            to="/"
+            className="text-[10px] font-bold tracking-[0.2em] text-[#E8D9CE]"
           >
-            Mercado
+            KURIO
           </Link>
 
-          <a
-            href="#criadores"
-            className="py-2 text-[#E8D9CE] transition-colors hover:text-[#D98845]"
-          >
-            Criadores
-          </a>
+          <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-7 font-mono text-xs md:flex">
+            <Link
+              to="/"
+              aria-current={isActive("/") ? "page" : undefined}
+              className={navLinkClass("/")}
+            >
+              Início
+            </Link>
 
-          <a
-            href="#aprenda"
-            className="py-2 text-[#E8D9CE] transition-colors hover:text-[#D98845]"
-          >
-            Aprenda
-          </a>
-        </nav>
+            <Link
+              to="/mercado"
+              aria-current={isActive("/mercado") ? "page" : undefined}
+              className={navLinkClass("/mercado")}
+            >
+              Mercado
+            </Link>
+
+            <Link
+              to="/"
+              aria-current={isActive("/criadores") ? "page" : undefined}
+              className={navLinkClass("/criadores")}
+            >
+              Criadores
+            </Link>
+
+            <Link
+              to="/"
+              aria-current={isActive("/aprenda") ? "page" : undefined}
+              className={navLinkClass("/aprenda")}
+            >
+              Aprenda
+            </Link>
+          </nav>
 
         <div className="flex items-center gap-4 text-[#F4EEE8]">
           {searchOpen && (
