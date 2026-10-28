@@ -21,7 +21,7 @@ Marketplace de NFTs desenvolvido com React e TypeScript, baseado em um layout do
 - [x] Pesquisa de NFTs por nome e identificador
 - [x] Filtro de NFTs por faixa de preço
 - [x] Filtro por categorias: todos, novos lançamentos e em alta
-- [ ] Paginação funcional
+- [x] Paginação funcional
 - [ ] Testes automatizados
 - [ ] Validação de desempenho e acessibilidade com Lighthouse
 
